@@ -1,0 +1,67 @@
+---
+alwaysApply: false
+description: Red-team playbook summary of MLSEC 2020 evasion with XOR/Base64, droppers, mimicry, dead code/imports; use to plan static-ML bypass tests and inform blue-team hardening.
+---
+
+### Red-team rule: Old Malware, New Tricks — Evasion with XOR/Base64, Droppers, Mimicry
+
+- **Scope and ethics**
+  - Authorized lab use only; preserve functionality; avoid persistence/exfil beyond ROE.
+  - Keep a transformation ledger (hashes, steps, decoder location) for reproducibility.
+
+- **Detector threat models to emulate**
+  - Header-based (PE structure/metadata)
+  - Import-based (TF‑IDF on libraries/APIs)
+  - String/byte models (readable tokens, n‑grams, histograms)
+  - Static-only deep models incl. non‑negative constraints.
+
+- **Objective**
+  - Make static optics benign while keeping runtime behavior intact, using a benign‑looking dropper to decode/load the payload in memory.
+
+- **Core techniques**
+  - Mimicry (#mimicry, #droppers)
+    - Mirror benign apps’ sections/metadata/imports in a staged dropper.
+  - Dead imports and dead code (#dead_imports, #dead_code)
+    - Inflate benign vocabulary; never executed; avoid side effects.
+  - Encoding layer (#encoding, #obfuscation)
+    - XOR: key‑based; non‑printable output; hides headers/strings at rest.
+    - Base64: printable; keyless; fast; useful for text channels but reversible.
+  - Byte padding
+    - Append benign/random bytes to sway raw‑byte distributions; pair with mimicry for header‑based models.
+
+- **When to combine**
+  - Layer: Mimicry (header) + dead imports/code (TF‑IDF) + XOR/Base64 (strings/bytes) → comprehensive static bypass with dropper decoding in memory.
+
+- **Why it works**
+  - Static ML relies on fragile proxies (headers, imports, strings, n‑grams). Small transformations shift these proxies toward benign while preserving behavior. Non‑negative nets can be tipped by benign padding votes.
+
+- **Success criteria**
+  - Bypass header‑based, import TF‑IDF, and string/byte detectors.
+  - No functional regressions; no decoded payloads written to disk; decode occurs in memory.
+
+- **Anti‑patterns / risks**
+  - Decoding to disk; dead code that runs; consistent keys/stubs across samples; over‑padding causing size/entropy anomalies.
+
+- **Blue‑team validation hooks**
+  - Dynamic detonation; import‑to‑usage audits; entropy/section diffs; YARA for decode stubs; memory forensics for in‑memory PE reconstruction; hybrid static+dynamic models; drift‑aware retraining.
+
+- **Cheat‑sheet**
+  - XOR vs Base64: XOR requires a key; outputs non‑printable bytes; not trivially reversible. Base64 is keyless, reversible, printable; conceals shape, not semantics.
+  - Mimicry/dead artifacts: inflate benign features without behavior change; target header/import‑based models.
+  - Adversarial training limits: raises FPR; concept drift erodes gains; adversarial malware resembles goodware.
+
+- **Deliverables per exercise**
+  - Original/transformed hashes; feature diffs (headers/imports/strings/bytes); detector scores pre/post; runtime parity notes; decode path characterization; hardening recommendations.
+
+- **Detector → counter‑feature mapping**
+  - Header‑based → dropper PE mimicry
+  - Import TF‑IDF → dead imports + dead code padding
+  - String/bytes → XOR/Base64 concealment
+  - Raw‑byte DL → benign byte padding + concealment
+  - Non‑negative DL → ensure benign static “votes”; decode only at runtime
+
+- **Use constraints**
+  - No implementation specifics or exploit/loader code here; rotate keys/artifacts; sanitize and remove test materials post‑exercise.
+
+- **One‑liner**
+  - Stage with a benign‑looking dropper, hide semantics with XOR/Base64, and inflate benign static features; keep decoding in memory to reliably defeat static detectors while feeding data back to harden defenses.

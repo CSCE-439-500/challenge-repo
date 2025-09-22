@@ -1,0 +1,93 @@
+---
+globs: *.py
+description: Python coding rules for red-team exercises—clarity, safety, ROE compliance, in-memory decoding, no dangerous side effects; aligned with evasion summary.
+---
+
+### Python red-team coding rules (static-ML bypass exercises)
+
+- **Safety and ROE**
+  - Code must respect engagement scope. Provide a `REDTEAM_MODE` toggle (env var) and fail closed when absent.
+  - Default to dry-run; require explicit `ALLOW_ACTIONS=true` env var for any file/network actions.
+
+- **In-memory first**
+  - Decoding/transformations must occur in memory. Do not write decoded artifacts to disk.
+  - If any temporary files are unavoidable, use OS temp dirs, random names, `delete=True`, and guaranteed cleanup.
+
+- **Key and secret handling**
+  - Never hardcode keys. Read via env vars or injected config objects. Example variable names: `DECODE_KEY`, `ALLOWED_HOSTS`.
+  - Zero secrets from memory where practical; redact secrets in logs.
+
+- **I/O guardrails**
+  - File writes require an explicit justification comment and a `guard_can_write()` gate.
+  - Network egress must be opt-in: only to allowlisted hosts from `ALLOWED_HOSTS` env var. No plaintext exfiltration.
+
+- **Mimicry / dead-code hygiene**
+  - Dead imports/code used for feature inflation must be isolated in modules that cannot be imported at runtime paths.
+  - Guard with runtime flags to ensure they never execute. Add a comment `# dead_code: not executed in runtime` above such blocks.
+
+- **Error handling**
+  - Use guard clauses. No bare `except:`. Catch specific exceptions and include context.
+  - Avoid deep nesting (>3 levels). Extract helpers with descriptive names.
+
+- **Logging and telemetry**
+  - Use structured logging (`logging` with JSON formatter or key=value). Include sample hash, step name, and outcome.
+  - Provide a transformation ledger writer that captures: input/output hashes, transformation names, runtime-only decode confirmation.
+
+- **Naming and types**
+  - Functions are verbs; variables are nouns. Prefer full words.
+  - Add type hints to all public functions and module surfaces. Avoid `Any` unless necessary.
+
+- **Determinism and testing**
+  - Support a deterministic mode with fixed seeds via `RANDOM_SEED` and stable outputs for CI verification.
+  - Provide unit tests for decode stubs with in-memory buffers; forbid filesystem/network in tests unless explicitly marked.
+
+- **Dependencies**
+  - Prefer stdlib first (e.g., `base64`, `secrets`, `hashlib`). Pin versions in `requirements.txt` when third-party is necessary.
+  - Disallow obscure packaging that could raise supply-chain concerns without prior approval.
+
+- **Prohibited or flagged patterns (require justification)**
+  - `subprocess`, `ctypes`, `ctypes.windll`, raw `socket`, `win32*` modules, reflective loaders. If used, gate behind `REDTEAM_MODE` and justify intent.
+  - Writing PE blobs or decoded buffers to disk. If absolutely necessary, write encrypted+ephemeral and auto-delete.
+
+- **API design**
+  - Separate transformation description from execution. Provide a data class describing the plan and a pure function that applies it to bytes.
+  - Ensure decode functions accept `bytes`/`memoryview` and return `bytes`.
+
+- **Docstrings**
+  - Top-level modules and all public functions must include docstrings that describe purpose, inputs/outputs, and red-team safety notes.
+
+- **Example skeletons (for reference only, not prescriptive)**
+
+```python
+import os
+import logging
+from dataclasses import dataclass
+from typing import Callable
+
+logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class TransformPlan:
+    name: str
+    apply: Callable[[bytes], bytes]
+
+
+def require_redteam_mode() -> None:
+    if os.getenv("REDTEAM_MODE") != "true":
+        raise RuntimeError("REDTEAM_MODE not enabled")
+
+
+def guard_can_write() -> None:
+    if os.getenv("ALLOW_ACTIONS") != "true":
+        raise PermissionError("Writes disabled without ALLOW_ACTIONS=true")
+
+```
+
+- **Reporting hooks**
+  - Provide a `summarize_transforms()` helper that outputs a minimal JSON for blue-team sharing: steps, hashes, no secrets.
+
+- **Exit hygiene**
+  - Ensure cleanup of temp artifacts; close file handles; remove residual logs containing sensitive data.
+
+- **Intent**
+  - These rules guide safe, auditable Python code for red-team exercises aligned with static-ML evasion research, without prescribing implementation details.
