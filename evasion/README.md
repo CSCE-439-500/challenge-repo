@@ -21,6 +21,10 @@ make run-pe INPUT=path/to/payload.exe OUTPUT=out/obfuscated.exe
 # One-shot: embed + bundle to standalone dropper
 make single INPUT=path/to/payload.exe DECODE_KEY=mykey
 
+# Batch obfuscation: process all binaries in a folder
+make batch-obfuscate INPUT_DIR=samples/ OUTPUT_DIR=out/
+make batch-dry-run INPUT_DIR=samples/  # Preview what would be processed
+
 # Test individual modules
 make test-compression
 make test-encryption
@@ -90,6 +94,8 @@ make test LOG_LEVEL=DEBUG
 - `make run-pe` - Full PE obfuscation (all modules enabled)
 - `make dry-run` - Show obfuscation plan without file writes
 - `make single` - One-shot: embed + bundle to standalone dropper
+- `make batch-obfuscate` - Obfuscate all binaries in a folder
+- `make batch-dry-run` - Show what would be obfuscated without doing it
 
 ### Specialized Module Testing
 - `make test-modules` - Test all specialized modules
@@ -115,7 +121,9 @@ make test LOG_LEVEL=DEBUG
 
 ### Makefile Variables
 - `INPUT` - Path to input PE file (default: `samples/sample.bin`)
+- `INPUT_DIR` - Directory containing binaries to obfuscate (default: `samples`)
 - `OUTPUT` - Output path (default: `out/out.bin`)
+- `OUTPUT_DIR` - Output directory for batch obfuscation (default: `out`)
 - `DECODE_KEY` - Encryption key (default: `secret`)
 - `LOG_LEVEL` - Log level (default: `INFO`)
 
@@ -161,6 +169,14 @@ make test LOG_LEVEL=DEBUG
 - Section name optimization
 - Benign timestamp generation
 
+### Batch Processing
+- **Automatic Binary Detection**: Identifies binary files by extension and content analysis
+- **Same Filename Output**: Files named `1`, `2`, `3` etc. are output as `out/1`, `out/2`, `out/3`
+- **Full PE Obfuscation**: All obfuscation modules enabled (mimicry, strings, imports, padding, compression, encryption)
+- **Comprehensive Logging**: Detailed progress and success/failure reporting
+- **Error Handling**: Continues processing even if individual files fail
+- **Dry Run Support**: Preview functionality to see what would be processed
+
 ## 🔒 Safety & Compliance
 
 - **ROE Compliance**: All operations require explicit environment variables
@@ -183,6 +199,7 @@ rt_evade/
 │   ├── obfuscator.py       # Main orchestrator
 │   └── ...                 # Other PE modules
 ├── dropper/                 # Runtime execution
+├── batch_obfuscate.py       # Batch processing script
 └── tests/                   # Comprehensive test suite
     ├── test_pe_compression.py
     ├── test_pe_encryption.py
@@ -200,5 +217,28 @@ make single INPUT=path/to/payload.exe
 # Execute single binary (no env vars required)
 ./out/dropper
 ```
+
+## 📦 Batch Obfuscation Workflow
+
+```bash
+# Obfuscate all binaries in a folder
+make batch-obfuscate INPUT_DIR=samples/ OUTPUT_DIR=out/
+
+# Preview what would be processed (dry run)
+make batch-dry-run INPUT_DIR=samples/
+
+# Custom output directory
+make batch-obfuscate INPUT_DIR=my_binaries/ OUTPUT_DIR=obfuscated_binaries/
+
+# Process with verbose logging
+make batch-obfuscate INPUT_DIR=samples/ LOG_LEVEL=DEBUG
+```
+
+**Batch Processing Features:**
+- Automatically detects binary files by extension and content
+- Preserves original filenames in output directory
+- Applies full PE obfuscation to each file
+- Continues processing even if individual files fail
+- Provides detailed logging of success/failure counts
 
 The output PE files are obfuscated at rest and will not run directly; execute them via the dropper which decodes in-memory to a temporary executable.
