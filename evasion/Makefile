@@ -15,26 +15,26 @@ ENV_KEY = DECODE_KEY=$(DECODE_KEY)
 ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
 ENV_PYTHONPATH = PYTHONPATH=src
 
-.PHONY: help init run run-b64 run-xor dry-run clean test dropper embed bundle single
+.PHONY: help init run run-pe dry-run clean test dropper embed bundle single
 
 help:
-	@echo "Targets: run run-b64 run-xor dry-run dropper embed bundle single clean test"
-	@echo "Usage: make single INPUT=payload.exe DECODE_KEY=secret"
+	@echo "Targets: run run-pe dry-run dropper embed bundle single clean test"
+	@echo "Usage: make single INPUT=payload.exe -- PE obfuscation"
+	@echo "       make run-pe INPUT=payload.exe -- PE obfuscation"
 
 init:
 	@mkdir -p $(OUT_DIR)
 
-run run-b64 run-xor: init
-	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
+run run-pe: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
-	$(if $(findstring run-b64,$@),--base64-strings) \
-	$(if $(findstring run-xor,$@),--xor-pack) \
-	$(if $(findstring run,$@),--base64-strings --xor-pack) \
+	$(if $(findstring run-pe,$@),--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding) \
+	$(if $(findstring run,$@),--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding) \
 	--output $(OUTPUT)
 
 dry-run:
-	$(ENV_REDTEAM) $(ENV_KEY) $(ENV_LOG) \
-	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) --base64-strings --xor-pack
+	$(ENV_REDTEAM) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) --pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding
 
 dropper:
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
@@ -44,8 +44,8 @@ test:
 	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_PYTHONPATH) $(PYTHON) -m pytest
 
 embed: init
-	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
-	$(PYTHON) -m $(SRC_MODULE) embed $(INPUT) --base64-strings --xor-pack --embed-key --output $(OUT_DIR)/embedded_payload.py
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) embed $(INPUT) --pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --output $(OUT_DIR)/embedded_payload.py
 
 bundle: embed
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
