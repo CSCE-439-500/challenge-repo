@@ -5,7 +5,9 @@ PYTHON ?= python
 SRC_MODULE ?= src
 OUT_DIR ?= out
 INPUT ?= samples/sample.bin
+INPUT_DIR ?= samples
 OUTPUT ?= $(OUT_DIR)/out.bin
+OUTPUT_DIR ?= $(OUT_DIR)
 DECODE_KEY ?= secret
 LOG_LEVEL ?= INFO
 
@@ -16,7 +18,7 @@ ENV_KEY = DECODE_KEY=$(DECODE_KEY)
 ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
 ENV_PYTHONPATH = PYTHONPATH=src
 
-.PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections
+.PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections batch-obfuscate batch-dry-run
 
 help:
 	@echo "=== PE Evasion Toolkit - Modular Components ==="
@@ -26,6 +28,8 @@ help:
 	@echo "  run-pe           - Full PE obfuscation (all modules enabled)"
 	@echo "  dry-run          - Show obfuscation plan without file writes"
 	@echo "  single           - One-shot: embed + bundle to standalone dropper"
+	@echo "  batch-obfuscate  - Obfuscate all binaries in a folder"
+	@echo "  batch-dry-run    - Show what would be obfuscated without doing it"
 	@echo ""
 	@echo "Specialized Module Targets:"
 	@echo "  test-compression - Test compression module only"
@@ -45,6 +49,7 @@ help:
 	@echo "  make run INPUT=payload.exe"
 	@echo "  make run-pe INPUT=payload.exe OUTPUT=out/obfuscated.exe"
 	@echo "  make single INPUT=payload.exe DECODE_KEY=mykey"
+	@echo "  make batch-obfuscate INPUT_DIR=samples/"
 	@echo "  make test-compression"
 
 init:
@@ -107,6 +112,21 @@ bundle: embed
 single: clean
 	$(MAKE) embed INPUT=$(INPUT) DECODE_KEY=$(DECODE_KEY) LOG_LEVEL=$(LOG_LEVEL)
 	$(MAKE) bundle LOG_LEVEL=$(LOG_LEVEL)
+
+# Batch obfuscation target
+batch-obfuscate: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_PYTHONPATH) \
+	$(PYTHON) -m src.batch_obfuscate $(INPUT_DIR) \
+	--output-dir $(OUTPUT_DIR) \
+	--pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption
+
+# Batch obfuscation dry run
+batch-dry-run:
+	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_PYTHONPATH) \
+	$(PYTHON) -m src.batch_obfuscate $(INPUT_DIR) \
+	--output-dir $(OUTPUT_DIR) \
+	--pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	--dry-run
 
 clean:
 	@rm -rf $(OUT_DIR) build dist *.spec __pycache__ .pytest_cache
