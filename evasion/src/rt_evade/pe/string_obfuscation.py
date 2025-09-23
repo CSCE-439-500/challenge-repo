@@ -176,15 +176,14 @@ class PEStringObfuscator:
 
         if method == "base64":
             return self._base64_obfuscate(string)
-        elif method == "xor":
+        if method == "xor":
             return self._xor_obfuscate(string)
-        elif method == "simple":
+        if method == "simple":
             return self._simple_obfuscate(string)
-        else:
-            logger.warning(
-                "action=unknown_obfuscation_method method=%s using_base64", method
-            )
-            return self._base64_obfuscate(string)
+        logger.warning(
+            "action=unknown_obfuscation_method method=%s using_base64", method
+        )
+        return self._base64_obfuscate(string)
 
     def _base64_obfuscate(self, string: str) -> str:
         """Obfuscate string using Base64 encoding.

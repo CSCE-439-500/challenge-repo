@@ -5,14 +5,11 @@ and eliminate static analysis artifacts from PE files.
 """
 
 import logging
-import os
 import secrets
-import random
-from typing import Dict, List, Optional, Any, Tuple, Set
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode, guard_can_write
-from .reader import PEReader
+from ..core.guards import require_redteam_mode
 from .writer import PEWriter
 
 logger = logging.getLogger(__name__)
@@ -726,7 +723,7 @@ class PEStaticEvasion:
         try:
             with PEWriter(pe_data) as writer:
                 # Remove tool signature strings
-                for category, signatures in self.tool_signatures.items():
+                for signatures in self.tool_signatures.values():
                     for signature in signatures:
                         # Replace with benign alternatives or remove
                         replacement = self._get_benign_replacement(signature)
@@ -770,7 +767,9 @@ class PEStaticEvasion:
             logger.error("action=suspicious_string_removal_failed error=%s", e)
             return pe_data
 
-    def _randomize_timestamps(self, writer: PEWriter) -> None:
+    def _randomize_timestamps(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Randomize timestamps in PE file.
 
         Args:
@@ -780,7 +779,9 @@ class PEStaticEvasion:
         # In a real implementation, we would modify PE timestamps
         logger.info("action=timestamps_randomized")
 
-    def _remove_compiler_info(self, writer: PEWriter) -> None:
+    def _remove_compiler_info(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Remove compiler information from PE file.
 
         Args:
@@ -790,7 +791,9 @@ class PEStaticEvasion:
         # In a real implementation, we would remove compiler-specific metadata
         logger.info("action=compiler_info_removed")
 
-    def _clean_other_metadata(self, writer: PEWriter) -> None:
+    def _clean_other_metadata(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Clean other metadata from PE file.
 
         Args:
@@ -812,12 +815,13 @@ class PEStaticEvasion:
         # Generate a random benign-looking replacement
         if len(original) <= 3:
             return "x" * len(original)
-        elif len(original) <= 10:
+        if len(original) <= 10:
             return f"func_{secrets.token_hex(2)}"
-        else:
-            return f"routine_{secrets.token_hex(4)}"
+        return f"routine_{secrets.token_hex(4)}"
 
-    def create_static_evasion_plan(self, pe_data: bytes) -> Dict[str, Any]:
+    def create_static_evasion_plan(
+        self, pe_data: bytes
+    ) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """Create a plan for static analysis evasion.
 
         Args:

@@ -1,3 +1,8 @@
+"""Security guards and access controls for the rt_evade toolkit.
+
+This module provides security guards that enforce proper engagement
+guardrails and access controls for red-team operations.
+"""
 import os
 
 

@@ -7,6 +7,6 @@ controls and avoid writing decoded artifacts to disk by default.
 
 __all__ = [
     "core",
-    "obfuscation",
+    "pe",
     "dropper",
 ]

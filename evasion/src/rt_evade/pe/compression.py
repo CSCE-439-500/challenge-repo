@@ -96,7 +96,8 @@ class PECompressor:
 
         compression_ratio = (len(compressed_data) / len(pe_data)) * 100
         logger.info(
-            "action=compression_applied algorithm=%s original_size=%d compressed_size=%d ratio=%.1f%%",
+            "action=compression_applied algorithm=%s original_size=%d "
+            "compressed_size=%d ratio=%.1f%%",
             self.config.compression_algorithm,
             len(pe_data),
             len(compressed_data),
@@ -119,16 +120,15 @@ class PECompressor:
 
         if algorithm == "zlib":
             return zlib.compress(data, level)
-        elif algorithm == "gzip":
+        if algorithm == "gzip":
             return gzip.compress(data, compresslevel=level)
-        elif algorithm == "bz2":
+        if algorithm == "bz2":
             return bz2.compress(data, compresslevel=level)
-        else:
-            logger.warning(
-                "action=unknown_compression_algorithm algorithm=%s using_zlib",
-                algorithm,
-            )
-            return zlib.compress(data, level)
+        logger.warning(
+            "action=unknown_compression_algorithm algorithm=%s using_zlib",
+            algorithm,
+        )
+        return zlib.compress(data, level)
 
     def _create_decompression_stub(self) -> bytes:
         """Create a simple decompression stub for runtime decompression.

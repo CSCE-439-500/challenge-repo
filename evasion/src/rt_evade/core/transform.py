@@ -1,3 +1,8 @@
+"""Core transformation types for binary data processing.
+
+This module defines the core types used for representing and applying
+transformations to binary data in the rt_evade toolkit.
+"""
 from dataclasses import dataclass
 from typing import Callable
 

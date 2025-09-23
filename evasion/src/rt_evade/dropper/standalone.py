@@ -14,7 +14,6 @@ from pathlib import Path
 
 from .embed import load_embedded_payload_and_key
 from .runtime_decode import RuntimeDecode
-from ..core.guards import guard_can_write, require_redteam_mode
 
 
 def _setup_logging() -> None:
@@ -31,7 +30,7 @@ def main() -> int:
 
     # ROE guardrails
     # Standalone binary must be runnable without env guards; enforce guards only during debug builds
-    # For bundled artifact, we skip require_redteam_mode/guard_can_write to allow execution without env
+    # For bundled artifact, we skip require_redteam_mode/guard_can_write to allow execution
 
     # Load embedded payload
     try:

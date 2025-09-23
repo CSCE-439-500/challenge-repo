@@ -5,8 +5,7 @@ that modified PE files maintain proper format and can execute correctly.
 """
 
 import logging
-import os
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Dict, Any
 import pefile
 from pefile import PE
 
@@ -17,8 +16,6 @@ logger = logging.getLogger(__name__)
 
 class PEValidationError(Exception):
     """Exception raised when PE validation fails."""
-
-    pass
 
 
 class PEValidator:
@@ -161,7 +158,7 @@ class PEValidator:
         virtual_addresses = set()
         raw_addresses = set()
 
-        for i, section in enumerate(pe.sections):
+        for section in pe.sections:
             # Check section name
             section_name = section.Name.decode("utf-8", errors="ignore").rstrip("\x00")
             if section_name in section_names:
@@ -173,14 +170,16 @@ class PEValidator:
             # Check virtual address
             if section.VirtualAddress in virtual_addresses:
                 self.validation_results["errors"].append(
-                    f"Duplicate virtual address in section {section_name}: 0x{section.VirtualAddress:x}"
+                    f"Duplicate virtual address in section {section_name}: "
+                    f"0x{section.VirtualAddress:x}"
                 )
             virtual_addresses.add(section.VirtualAddress)
 
             # Check raw address
             if section.PointerToRawData in raw_addresses:
                 self.validation_results["warnings"].append(
-                    f"Duplicate raw address in section {section_name}: 0x{section.PointerToRawData:x}"
+                    f"Duplicate raw address in section {section_name}: "
+                    f"0x{section.PointerToRawData:x}"
                 )
             raw_addresses.add(section.PointerToRawData)
 

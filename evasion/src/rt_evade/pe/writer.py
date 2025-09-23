@@ -5,13 +5,12 @@ ROE guardrails. All modifications preserve PE format integrity.
 """
 
 import logging
-import os
-from typing import Dict, List, Optional, Tuple, Any
+import secrets
+from typing import Dict, Optional
 import pefile
 from pefile import PE, SectionStructure
 
 from ..core.guards import require_redteam_mode, guard_can_write
-from .reader import PEReader, PESectionInfo, PEHeaderInfo
 
 logger = logging.getLogger(__name__)
 
@@ -122,8 +121,9 @@ class PEWriter:
 
         # Update image size
         new_image_size = virtual_address + virtual_size
-        if new_image_size > self.pe.OPTIONAL_HEADER.SizeOfImage:
-            self.pe.OPTIONAL_HEADER.SizeOfImage = new_image_size
+        self.pe.OPTIONAL_HEADER.SizeOfImage = max(
+            self.pe.OPTIONAL_HEADER.SizeOfImage, new_image_size
+        )
 
         # Pad data to file alignment
         padded_data = data + b"\x00" * (raw_size - len(data))
@@ -172,7 +172,6 @@ class PEWriter:
 
         # Replace section data
         start = section.PointerToRawData
-        end = start + len(new_data)
 
         # Pad with nulls if new data is smaller
         padded_data = new_data + b"\x00" * (section.SizeOfRawData - len(new_data))
@@ -309,8 +308,6 @@ class PEWriter:
             return False
 
         # Generate random junk data
-        import secrets
-
         junk_data = secrets.token_bytes(size)
 
         # Find a suitable location within the section
@@ -325,11 +322,11 @@ class PEWriter:
             self.pe_data[null_start : null_start + size] = junk_data
             logger.info("action=junk_data_added section=%s size=%d", section_name, size)
             return True
-        else:
-            logger.warning(
-                "action=no_space_for_junk section=%s size=%d", section_name, size
-            )
-            return False
+
+        logger.warning(
+            "action=no_space_for_junk section=%s size=%d", section_name, size
+        )
+        return False
 
     def _find_section(self, section_name: str) -> Optional[SectionStructure]:
         """Find a section by name.
@@ -352,7 +349,7 @@ class PEWriter:
         """Update addresses of all sections after modifications."""
         # This is a simplified implementation
         # Full address recalculation requires complex PE manipulation
-        pass
+        # TODO: Implement full address recalculation
 
     def get_modified_data(self) -> bytes:
         """Get the modified PE data.
