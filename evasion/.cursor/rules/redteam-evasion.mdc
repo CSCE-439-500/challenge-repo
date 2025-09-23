@@ -69,5 +69,14 @@ description: Red-team playbook summary of MLSEC 2020 evasion with XOR/Base64, dr
 ---
 
 # Very Important Note
-NOTE THE GOAL IS TO TAKE AN INPUT BINARY AND MODIFY THIS BINARY TO EVADE. MEANING WE DON'T GET THE SOURCE CODE. 
-SO WHATEVER WE DO MUST SOLELY MODIFY THE BINARY AND MAINTAIN THE ORIGINAL FUNCTIONALITY.
+- NOTE THE GOAL IS TO TAKE AN INPUT BINARY AND MODIFY THIS BINARY TO EVADE. MEANING WE DON'T GET THE SOURCE CODE. SO WHATEVER WE DO MUST SOLELY MODIFY THE BINARY AND MAINTAIN THE ORIGINAL FUNCTIONALITY.
+- The only files we will input are PE files so all output files should also be in PE format
+- Meaning we may potentially want to use PE libaries in python
+- Mimicry (Dropper) -> Bypass header-based models
+- Dead imports/code -> Dilutes suspicious features, bypasses import-based models
+- XOR/Base64 encoding -> Hides headers & strings, bypasses string-based models
+- Using a combination of the techniques will lead to covering the weaknesses that each technique has
+- Which will lead to a high chance of the malware looking identical to benign software and still executing as intended
+
+# CONSTRAINTS
+- Max file size we can create is 5 MB

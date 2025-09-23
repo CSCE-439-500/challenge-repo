@@ -1,0 +1,61 @@
+---
+alwaysApply: false
+description: Guidance for building a single-binary dropper that embeds an obfuscated payload and decodes/executes it at runtime under ROE guardrails.
+---
+# Single-Binary Dropper Rule
+
+Goal: Produce ONE executable that contains the obfuscated payload and a runtime dropper that decodes and executes the original program while respecting ROE.
+
+- Input: arbitrary binary payload
+- Output: single self-contained executable (dropper + embedded payload)
+- Decode path: in-memory decode, ephemeral write to secure temp file only when required to execute a native entrypoint; immediate cleanup
+
+## Code anchors
+- Dropper runtime decode: [src/rt_evade/dropper/runtime_decode.py](mdc:src/rt_evade/dropper/runtime_decode.py)
+- Dropper CLI (runtime exec): [src/rt_evade/dropper/cli.py](mdc:src/rt_evade/dropper/cli.py)
+- XOR packer: [src/rt_evade/obfuscation/xor_packer.py](mdc:src/rt_evade/obfuscation/xor_packer.py)
+- Base64 string obfuscator: [src/rt_evade/obfuscation/base64_strings.py](mdc:src/rt_evade/obfuscation/base64_strings.py)
+- Pipeline/guards: [src/rt_evade/core/pipeline.py](mdc:src/rt_evade/core/pipeline.py), [src/rt_evade/core/guards.py](mdc:src/rt_evade/core/guards.py)
+- CLI entry: [src/__main__.py](mdc:src/__main__.py)
+
+## Requirements
+- Preserve original functionality: stdout/stderr/exit code parity when executed via dropper
+- ROE guardrails: require `REDTEAM_MODE=true`; file writes/exec guarded by `ALLOW_ACTIONS=true`
+- Secrets: no hardcoded keys; use `DECODE_KEY` env var
+- In-memory first: avoid writing decoded payload to disk unless executing; then use OS temp dir, mark executable, and cleanup
+
+## Design pattern
+1) Obfuscate payload (XOR + optional Base64 string markers) to remove static signatures
+2) Embed obfuscated bytes into the dropper as a data section
+   - Preferred: store as a Python bytes literal or base64 text in a module, not a separate file
+   - Provide metadata (hash, size) for audit
+3) At runtime, dropper decodes in memory using `RuntimeDecode` and `DECODE_KEY`
+4) Execution strategy (native binaries): write decoded buffer to a secure temporary file, `chmod +x`, execute, capture exit code, then delete
+5) Telemetry: log step names and input/output hashes; never log secrets
+
+## Build to a single executable
+- Use a packager (future step) to bundle Python dropper + embedded payload into one binary
+  - Acceptable tools: PyInstaller (onefile), Nuitka, or similar (pin versions; supply-chain review required)
+  - Ensure environment variables (`REDTEAM_MODE`, `ALLOW_ACTIONS`, `DECODE_KEY`) are read at runtime
+- The Makefile should gain targets like `make bundle` that produce a single executable artifact
+
+## Anti-patterns / risks
+- Writing decoded payload permanently to disk
+- Leaving temp files behind; failure to cleanup
+- Hardcoding `DECODE_KEY`
+- Executing without ROE gates
+
+## Testing guidance
+- Reuse `tests/test_runtime_parity.py` to validate stdout parity by executing via the dropper path
+- Add tests for temp-file cleanup and non-zero exit code propagation
+
+## Implementation notes
+- Embedding helper (future): create a module like `src/rt_evade/dropper/embed.py` that can generate a Python module `embedded_payload.py` containing `EMBEDDED = b"..."` at build time
+- Ensure dead-code/strings in dropper don’t execute; keep mimicry/dead imports guarded and inert
+
+## Usage expectations
+- Transform phase produces an obfuscated payload; bundle phase builds the single executable dropper with the embedded payload
+- Runtime execution must go through the dropper (the obfuscated output is not expected to run directly)
+
+# CONSTRAINTS
+- Max file size we can create is 5 MB

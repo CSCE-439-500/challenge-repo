@@ -1,62 +1,60 @@
-# Simple Makefile to run the evasion toolkit and manage outputs
+# Red-team evasion toolkit Makefile
 
 PYTHON ?= python
 SRC_MODULE ?= src
-SAMPLES_DIR ?= samples
 OUT_DIR ?= out
-
-# Defaults (override with make VAR=value)
-INPUT ?= $(SAMPLES_DIR)/sample.bin
+INPUT ?= samples/sample.bin
 OUTPUT ?= $(OUT_DIR)/out.bin
 DECODE_KEY ?= secret
 LOG_LEVEL ?= INFO
 
-.PHONY: help init run run-b64 run-xor dry-run clean test
+# Common env vars
+ENV_REDTEAM = REDTEAM_MODE=true
+ENV_ACTIONS = ALLOW_ACTIONS=true
+ENV_KEY = DECODE_KEY=$(DECODE_KEY)
+ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
+ENV_PYTHONPATH = PYTHONPATH=src
+
+.PHONY: help init run run-b64 run-xor dry-run clean test dropper embed bundle single
 
 help:
-	@echo "Targets:"
-	@echo "  make run        - run with base64+xor, write $(OUTPUT) (creates $(OUT_DIR))"
-	@echo "  make run-b64    - run with base64 only, write $(OUTPUT)"
-	@echo "  make run-xor    - run with xor only, write $(OUTPUT)"
-	@echo "  make dry-run    - run transforms without writing output"
-	@echo "  make clean      - remove $(OUT_DIR) and generated binaries"
-	@echo "Variables (override: make VAR=value): INPUT, OUTPUT, DECODE_KEY, LOG_LEVEL"
+	@echo "Targets: run run-b64 run-xor dry-run dropper embed bundle single clean test"
+	@echo "Usage: make single INPUT=payload.exe DECODE_KEY=secret"
 
 init:
 	@mkdir -p $(OUT_DIR)
 
-run: init
-	REDTEAM_MODE=true \
-	ALLOW_ACTIONS=true \
-	DECODE_KEY=$(DECODE_KEY) \
-	LOG_LEVEL=$(LOG_LEVEL) \
-	$(PYTHON) -m $(SRC_MODULE) $(INPUT) --base64-strings --xor-pack --output $(OUTPUT)
-
-run-b64: init
-	REDTEAM_MODE=true \
-	ALLOW_ACTIONS=true \
-	LOG_LEVEL=$(LOG_LEVEL) \
-	$(PYTHON) -m $(SRC_MODULE) $(INPUT) --base64-strings --output $(OUTPUT)
-
-run-xor: init
-	REDTEAM_MODE=true \
-	ALLOW_ACTIONS=true \
-	DECODE_KEY=$(DECODE_KEY) \
-	LOG_LEVEL=$(LOG_LEVEL) \
-	$(PYTHON) -m $(SRC_MODULE) $(INPUT) --xor-pack --output $(OUTPUT)
+run run-b64 run-xor: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
+	$(if $(findstring run-b64,$@),--base64-strings) \
+	$(if $(findstring run-xor,$@),--xor-pack) \
+	$(if $(findstring run,$@),--base64-strings --xor-pack) \
+	--output $(OUTPUT)
 
 dry-run:
-	REDTEAM_MODE=true \
-	DECODE_KEY=$(DECODE_KEY) \
-	LOG_LEVEL=$(LOG_LEVEL) \
-	$(PYTHON) -m $(SRC_MODULE) $(INPUT) --base64-strings --xor-pack
+	$(ENV_REDTEAM) $(ENV_KEY) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) --base64-strings --xor-pack
 
-clean:
-	@rm -rf $(OUT_DIR)
+dropper:
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) dropper $(INPUT) --xor
 
 test:
-	REDTEAM_MODE=true \
-	LOG_LEVEL=$(LOG_LEVEL) \
-	PYTHONPATH=src \
-	$(PYTHON) -m pytest
+	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_PYTHONPATH) $(PYTHON) -m pytest
+
+embed: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_KEY) $(ENV_LOG) \
+	$(PYTHON) -m $(SRC_MODULE) embed $(INPUT) --base64-strings --xor-pack --embed-key --output $(OUT_DIR)/embedded_payload.py
+
+bundle: embed
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
+	$(PYTHON) -m PyInstaller --onefile --name dropper --add-data "$(OUT_DIR)/embedded_payload.py:." src/rt_evade/dropper/standalone.py --distpath $(OUT_DIR)
+
+single: clean
+	$(MAKE) embed INPUT=$(INPUT) DECODE_KEY=$(DECODE_KEY) LOG_LEVEL=$(LOG_LEVEL)
+	$(MAKE) bundle LOG_LEVEL=$(LOG_LEVEL)
+
+clean:
+	@rm -rf $(OUT_DIR) build dist *.spec __pycache__ .pytest_cache
 
