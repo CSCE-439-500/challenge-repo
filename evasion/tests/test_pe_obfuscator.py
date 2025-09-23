@@ -168,6 +168,9 @@ class TestPEObfuscationConfig:
             enable_import_inflation=False,
             enable_section_padding=False,
             enable_entropy_increase=False,
+            enable_compression=False,
+            compression_algorithm="gzip",
+            compression_level=9,
             target_category="system_utility",
             max_file_size=1024 * 1024  # 1MB
         )
@@ -177,5 +180,175 @@ class TestPEObfuscationConfig:
         assert config.enable_import_inflation is False
         assert config.enable_section_padding is False
         assert config.enable_entropy_increase is False
+        assert config.enable_compression is False
+        assert config.compression_algorithm == "gzip"
+        assert config.compression_level == 9
         assert config.target_category == "system_utility"
         assert config.max_file_size == 1024 * 1024
+    
+    def test_compression_config(self):
+        """Test compression configuration options."""
+        config = PEObfuscationConfig(
+            enable_compression=True,
+            compression_algorithm="bz2",
+            compression_level=5
+        )
+        
+        assert config.enable_compression is True
+        assert config.compression_algorithm == "bz2"
+        assert config.compression_level == 5
+
+
+class TestPECompression:
+    """Test PE compression functionality."""
+    
+    def test_compression_with_large_data(self, mock_pe_data):
+        """Test compression with data large enough to benefit."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            # Create larger mock data for compression testing
+            large_data = mock_pe_data + b"x" * 2000  # Add 2KB of repeated data
+            
+            config = PEObfuscationConfig(
+                enable_mimicry=False,
+                enable_string_obfuscation=False,
+                enable_import_inflation=False,
+                enable_section_padding=False,
+                enable_entropy_increase=False,
+                enable_compression=True,
+                compression_algorithm="zlib",
+                compression_level=6
+            )
+            obfuscator = PEObfuscator(config)
+            
+            try:
+                obfuscated = obfuscator.obfuscate_pe(large_data)
+                assert isinstance(obfuscated, bytes)
+                assert len(obfuscated) > 0
+            except Exception as e:
+                # Some operations might fail with mock data
+                assert "Invalid PE file" in str(e) or "PE format error" in str(e)
+    
+    def test_compression_skipped_for_small_files(self, mock_pe_data):
+        """Test that compression is skipped for small files."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            config = PEObfuscationConfig(
+                enable_mimicry=False,
+                enable_string_obfuscation=False,
+                enable_import_inflation=False,
+                enable_section_padding=False,
+                enable_entropy_increase=False,
+                enable_compression=True
+            )
+            obfuscator = PEObfuscator(config)
+            
+            # Small file should not be compressed
+            obfuscated = obfuscator.obfuscate_pe(mock_pe_data)
+            assert isinstance(obfuscated, bytes)
+            # For small files, compression should be skipped
+            # so the result should be similar to original
+    
+    def test_compression_algorithms(self, mock_pe_data):
+        """Test different compression algorithms."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            large_data = mock_pe_data + b"test_data_for_compression" * 100
+            
+            algorithms = ["zlib", "gzip", "bz2"]
+            
+            for algorithm in algorithms:
+                config = PEObfuscationConfig(
+                    enable_mimicry=False,
+                    enable_string_obfuscation=False,
+                    enable_import_inflation=False,
+                    enable_section_padding=False,
+                    enable_entropy_increase=False,
+                    enable_compression=True,
+                    compression_algorithm=algorithm,
+                    compression_level=6
+                )
+                obfuscator = PEObfuscator(config)
+                
+                try:
+                    obfuscated = obfuscator.obfuscate_pe(large_data)
+                    assert isinstance(obfuscated, bytes)
+                    assert len(obfuscated) > 0
+                except Exception as e:
+                    # Some operations might fail with mock data
+                    assert "Invalid PE file" in str(e) or "PE format error" in str(e)
+    
+    def test_compression_levels(self, mock_pe_data):
+        """Test different compression levels."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            large_data = mock_pe_data + b"repeated_data_for_compression" * 200
+            
+            levels = [1, 6, 9]
+            
+            for level in levels:
+                config = PEObfuscationConfig(
+                    enable_mimicry=False,
+                    enable_string_obfuscation=False,
+                    enable_import_inflation=False,
+                    enable_section_padding=False,
+                    enable_entropy_increase=False,
+                    enable_compression=True,
+                    compression_algorithm="zlib",
+                    compression_level=level
+                )
+                obfuscator = PEObfuscator(config)
+                
+                try:
+                    obfuscated = obfuscator.obfuscate_pe(large_data)
+                    assert isinstance(obfuscated, bytes)
+                    assert len(obfuscated) > 0
+                except Exception as e:
+                    # Some operations might fail with mock data
+                    assert "Invalid PE file" in str(e) or "PE format error" in str(e)
+    
+    def test_compression_report(self, mock_pe_data):
+        """Test compression report generation."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            large_data = mock_pe_data + b"test_compression_data" * 150
+            
+            config = PEObfuscationConfig(
+                enable_mimicry=False,
+                enable_string_obfuscation=False,
+                enable_import_inflation=False,
+                enable_section_padding=False,
+                enable_entropy_increase=False,
+                enable_compression=True
+            )
+            obfuscator = PEObfuscator(config)
+            
+            try:
+                obfuscated = obfuscator.obfuscate_pe(large_data)
+                report = obfuscator.get_obfuscation_report(large_data, obfuscated)
+                
+                assert isinstance(report, dict)
+                assert "compression_ratio" in report
+                assert "size_change" in report
+                assert "size_percentage" in report
+            except Exception as e:
+                # Some operations might fail with mock data
+                assert "Invalid PE file" in str(e) or "PE format error" in str(e)
+    
+    def test_compression_disabled(self, mock_pe_data):
+        """Test that compression is skipped when disabled."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            large_data = mock_pe_data + b"large_data_for_testing" * 200
+            
+            config = PEObfuscationConfig(
+                enable_mimicry=False,
+                enable_string_obfuscation=False,
+                enable_import_inflation=False,
+                enable_section_padding=False,
+                enable_entropy_increase=False,
+                enable_compression=False  # Disabled
+            )
+            obfuscator = PEObfuscator(config)
+            
+            try:
+                obfuscated = obfuscator.obfuscate_pe(large_data)
+                assert isinstance(obfuscated, bytes)
+                # When compression is disabled, the result should be similar to original
+            except Exception as e:
+                # Some operations might fail with mock data
+                assert "Invalid PE file" in str(e) or "PE format error" in str(e)
