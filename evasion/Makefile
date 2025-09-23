@@ -111,4 +111,3 @@ single: clean
 clean:
 	@rm -rf $(OUT_DIR) build dist *.spec __pycache__ .pytest_cache
 	@echo "Cleaned all build artifacts"
-

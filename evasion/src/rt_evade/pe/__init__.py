@@ -11,10 +11,4 @@ from .validator import PEValidator
 from .mimicry import PEMimicryEngine
 from .obfuscator import PEObfuscator
 
-__all__ = [
-    "PEReader",
-    "PEWriter", 
-    "PEValidator",
-    "PEMimicryEngine",
-    "PEObfuscator"
-]
+__all__ = ["PEReader", "PEWriter", "PEValidator", "PEMimicryEngine", "PEObfuscator"]

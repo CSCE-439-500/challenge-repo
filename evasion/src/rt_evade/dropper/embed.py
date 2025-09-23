@@ -70,10 +70,14 @@ def load_embedded_payload(module_name: str = "embedded_payload") -> bytes:
         module = __import__(module_name, fromlist=["EMBEDDED_PAYLOAD"])
         return module.EMBEDDED_PAYLOAD
     except ImportError as e:
-        raise RuntimeError(f"Failed to load embedded payload module '{module_name}': {e}")
+        raise RuntimeError(
+            f"Failed to load embedded payload module '{module_name}': {e}"
+        )
 
 
-def load_embedded_payload_and_key(module_name: str = "embedded_payload") -> Tuple[bytes, bytes]:
+def load_embedded_payload_and_key(
+    module_name: str = "embedded_payload",
+) -> Tuple[bytes, bytes]:
     """Load the embedded payload and key; works with import or file fallback.
 
     Tries import first; if unavailable (e.g., in packaged onefile with data), attempts
@@ -102,6 +106,9 @@ def load_embedded_payload_and_key(module_name: str = "embedded_payload") -> Tupl
             payload = ns.get("EMBEDDED_PAYLOAD", b"")
             key = ns.get("EMBEDDED_KEY", b"")
             if isinstance(payload, (bytes, bytearray)):
-                return bytes(payload), bytes(key) if isinstance(key, (bytes, bytearray)) else b""
+                return (
+                    bytes(payload),
+                    bytes(key) if isinstance(key, (bytes, bytearray)) else b"",
+                )
 
     raise RuntimeError("Embedded payload not found")

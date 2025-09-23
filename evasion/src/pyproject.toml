@@ -12,5 +12,3 @@ dependencies = []
 
 [project.scripts]
 rt-evade = "__main__:main"
-
-

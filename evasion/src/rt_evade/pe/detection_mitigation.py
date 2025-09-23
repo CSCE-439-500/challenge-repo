@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class DetectionMitigationConfig:
     """Configuration for detection vector mitigation."""
+
     enable_file_size_monitoring: bool = True
     enable_timestamp_preservation: bool = True
     enable_section_name_optimization: bool = True
@@ -32,79 +33,257 @@ class DetectionMitigationConfig:
 
 class PEDetectionMitigation:
     """PE detection vector mitigation for file size control and stealth modification.
-    
+
     This class provides capabilities to monitor file size, preserve timestamps,
     and manage PE section names to avoid immediate detection vectors.
     """
-    
+
     def __init__(self, config: Optional[DetectionMitigationConfig] = None):
         """Initialize detection mitigation with configuration.
-        
+
         Args:
             config: Detection mitigation configuration options
         """
         require_redteam_mode()
-        
+
         self.config = config or DetectionMitigationConfig()
         self.common_section_names = self._load_common_section_names()
         self.benign_timestamps = self._load_benign_timestamps()
-        
+
         logger.info("action=detection_mitigation_initialized config=%s", self.config)
-    
+
     def _load_common_section_names(self) -> Dict[str, List[str]]:
         """Load database of common PE section names.
-        
+
         Returns:
             Dictionary mapping section categories to lists of names
         """
         return {
             "standard": [
-                ".text", ".data", ".rdata", ".bss", ".idata", ".edata", ".rsrc",
-                ".reloc", ".debug", ".pdata", ".xdata", ".tls", ".gfids", ".sxdata"
+                ".text",
+                ".data",
+                ".rdata",
+                ".bss",
+                ".idata",
+                ".edata",
+                ".rsrc",
+                ".reloc",
+                ".debug",
+                ".pdata",
+                ".xdata",
+                ".tls",
+                ".gfids",
+                ".sxdata",
             ],
             "benign": [
-                ".text", ".data", ".rdata", ".bss", ".idata", ".edata", ".rsrc",
-                ".reloc", ".debug", ".pdata", ".xdata", ".tls", ".gfids", ".sxdata",
-                ".init", ".fini", ".ctors", ".dtors", ".jcr", ".eh_frame", ".gcc_except_table",
-                ".rodata", ".rodata1", ".comment", ".note", ".note.GNU-stack", ".note.ABI-tag",
-                ".gnu.version", ".gnu.version_r", ".gnu.hash", ".dynsym", ".dynstr", ".plt",
-                ".got", ".got.plt", ".dynamic", ".interp", ".shstrtab", ".symtab", ".strtab"
+                ".text",
+                ".data",
+                ".rdata",
+                ".bss",
+                ".idata",
+                ".edata",
+                ".rsrc",
+                ".reloc",
+                ".debug",
+                ".pdata",
+                ".xdata",
+                ".tls",
+                ".gfids",
+                ".sxdata",
+                ".init",
+                ".fini",
+                ".ctors",
+                ".dtors",
+                ".jcr",
+                ".eh_frame",
+                ".gcc_except_table",
+                ".rodata",
+                ".rodata1",
+                ".comment",
+                ".note",
+                ".note.GNU-stack",
+                ".note.ABI-tag",
+                ".gnu.version",
+                ".gnu.version_r",
+                ".gnu.hash",
+                ".dynsym",
+                ".dynstr",
+                ".plt",
+                ".got",
+                ".got.plt",
+                ".dynamic",
+                ".interp",
+                ".shstrtab",
+                ".symtab",
+                ".strtab",
             ],
             "suspicious": [
-                ".packed", ".upx", ".themida", ".vmprotect", ".enigma", ".aspack",
-                ".pecompact", ".molebox", ".boxedapp", ".petite", ".wwpack", ".pklite",
-                ".lzexe", ".diet", ".aplib", ".lzma", ".7zip", ".winrar", ".winzip",
-                ".pkzip", ".arj", ".lha", ".cab", ".msi", ".nsis", ".inno", ".wise",
-                ".confuser", ".eazfuscator", ".smartassembly", ".dotfuscator", ".codeveil",
-                ".phoenix", ".codevirtualizer", ".asprotect", ".exestealth", ".peid"
+                ".packed",
+                ".upx",
+                ".themida",
+                ".vmprotect",
+                ".enigma",
+                ".aspack",
+                ".pecompact",
+                ".molebox",
+                ".boxedapp",
+                ".petite",
+                ".wwpack",
+                ".pklite",
+                ".lzexe",
+                ".diet",
+                ".aplib",
+                ".lzma",
+                ".7zip",
+                ".winrar",
+                ".winzip",
+                ".pkzip",
+                ".arj",
+                ".lha",
+                ".cab",
+                ".msi",
+                ".nsis",
+                ".inno",
+                ".wise",
+                ".confuser",
+                ".eazfuscator",
+                ".smartassembly",
+                ".dotfuscator",
+                ".codeveil",
+                ".phoenix",
+                ".codevirtualizer",
+                ".asprotect",
+                ".exestealth",
+                ".peid",
             ],
             "system": [
-                ".text", ".data", ".rdata", ".bss", ".idata", ".edata", ".rsrc",
-                ".reloc", ".debug", ".pdata", ".xdata", ".tls", ".gfids", ".sxdata",
-                ".init", ".fini", ".ctors", ".dtors", ".jcr", ".eh_frame", ".gcc_except_table",
-                ".rodata", ".rodata1", ".comment", ".note", ".note.GNU-stack", ".note.ABI-tag",
-                ".gnu.version", ".gnu.version_r", ".gnu.hash", ".dynsym", ".dynstr", ".plt",
-                ".got", ".got.plt", ".dynamic", ".interp", ".shstrtab", ".symtab", ".strtab",
-                ".crt", ".CRT", ".ctors", ".dtors", ".jcr", ".eh_frame", ".gcc_except_table",
-                ".rodata", ".rodata1", ".comment", ".note", ".note.GNU-stack", ".note.ABI-tag"
+                ".text",
+                ".data",
+                ".rdata",
+                ".bss",
+                ".idata",
+                ".edata",
+                ".rsrc",
+                ".reloc",
+                ".debug",
+                ".pdata",
+                ".xdata",
+                ".tls",
+                ".gfids",
+                ".sxdata",
+                ".init",
+                ".fini",
+                ".ctors",
+                ".dtors",
+                ".jcr",
+                ".eh_frame",
+                ".gcc_except_table",
+                ".rodata",
+                ".rodata1",
+                ".comment",
+                ".note",
+                ".note.GNU-stack",
+                ".note.ABI-tag",
+                ".gnu.version",
+                ".gnu.version_r",
+                ".gnu.hash",
+                ".dynsym",
+                ".dynstr",
+                ".plt",
+                ".got",
+                ".got.plt",
+                ".dynamic",
+                ".interp",
+                ".shstrtab",
+                ".symtab",
+                ".strtab",
+                ".crt",
+                ".CRT",
+                ".ctors",
+                ".dtors",
+                ".jcr",
+                ".eh_frame",
+                ".gcc_except_table",
+                ".rodata",
+                ".rodata1",
+                ".comment",
+                ".note",
+                ".note.GNU-stack",
+                ".note.ABI-tag",
             ],
             "development": [
-                ".text", ".data", ".rdata", ".bss", ".idata", ".edata", ".rsrc",
-                ".reloc", ".debug", ".pdata", ".xdata", ".tls", ".gfids", ".sxdata",
-                ".init", ".fini", ".ctors", ".dtors", ".jcr", ".eh_frame", ".gcc_except_table",
-                ".rodata", ".rodata1", ".comment", ".note", ".note.GNU-stack", ".note.ABI-tag",
-                ".gnu.version", ".gnu.version_r", ".gnu.hash", ".dynsym", ".dynstr", ".plt",
-                ".got", ".got.plt", ".dynamic", ".interp", ".shstrtab", ".symtab", ".strtab",
-                ".crt", ".CRT", ".ctors", ".dtors", ".jcr", ".eh_frame", ".gcc_except_table",
-                ".rodata", ".rodata1", ".comment", ".note", ".note.GNU-stack", ".note.ABI-tag",
-                ".gnu.version", ".gnu.version_r", ".gnu.hash", ".dynsym", ".dynstr", ".plt",
-                ".got", ".got.plt", ".dynamic", ".interp", ".shstrtab", ".symtab", ".strtab"
-            ]
+                ".text",
+                ".data",
+                ".rdata",
+                ".bss",
+                ".idata",
+                ".edata",
+                ".rsrc",
+                ".reloc",
+                ".debug",
+                ".pdata",
+                ".xdata",
+                ".tls",
+                ".gfids",
+                ".sxdata",
+                ".init",
+                ".fini",
+                ".ctors",
+                ".dtors",
+                ".jcr",
+                ".eh_frame",
+                ".gcc_except_table",
+                ".rodata",
+                ".rodata1",
+                ".comment",
+                ".note",
+                ".note.GNU-stack",
+                ".note.ABI-tag",
+                ".gnu.version",
+                ".gnu.version_r",
+                ".gnu.hash",
+                ".dynsym",
+                ".dynstr",
+                ".plt",
+                ".got",
+                ".got.plt",
+                ".dynamic",
+                ".interp",
+                ".shstrtab",
+                ".symtab",
+                ".strtab",
+                ".crt",
+                ".CRT",
+                ".ctors",
+                ".dtors",
+                ".jcr",
+                ".eh_frame",
+                ".gcc_except_table",
+                ".rodata",
+                ".rodata1",
+                ".comment",
+                ".note",
+                ".note.GNU-stack",
+                ".note.ABI-tag",
+                ".gnu.version",
+                ".gnu.version_r",
+                ".gnu.hash",
+                ".dynsym",
+                ".dynstr",
+                ".plt",
+                ".got",
+                ".got.plt",
+                ".dynamic",
+                ".interp",
+                ".shstrtab",
+                ".symtab",
+                ".strtab",
+            ],
         }
-    
+
     def _load_benign_timestamps(self) -> List[int]:
         """Load database of benign timestamps.
-        
+
         Returns:
             List of benign timestamp values
         """
@@ -161,59 +340,73 @@ class PEDetectionMitigation:
             1730419200,  # 2024-11-01 00:00:00
             1733011200,  # 2024-12-01 00:00:00
         ]
-        
+
         # Add some variation to make timestamps look more realistic
         varied_timestamps = []
         for base in base_timestamps:
             # Add random variation of up to 30 days
             variation = random.randint(-30 * 24 * 3600, 30 * 24 * 3600)
             varied_timestamps.append(base + variation)
-        
+
         return varied_timestamps
-    
+
     def monitor_file_size(self, pe_data: bytes) -> Dict[str, Any]:
         """Monitor file size and provide recommendations.
-        
+
         Args:
             pe_data: Raw PE file bytes
-            
+
         Returns:
             Dictionary containing size analysis and recommendations
         """
         file_size = len(pe_data)
-        
+
         analysis = {
             "current_size": file_size,
             "max_size": self.config.max_file_size,
             "min_size": self.config.min_file_size,
             "size_percentage": (file_size / self.config.max_file_size) * 100,
-            "within_limits": self.config.min_file_size <= file_size <= self.config.max_file_size,
-            "recommendations": []
+            "within_limits": self.config.min_file_size
+            <= file_size
+            <= self.config.max_file_size,
+            "recommendations": [],
         }
-        
+
         # Generate recommendations based on size
         if file_size > self.config.max_file_size:
-            analysis["recommendations"].append("File exceeds maximum size limit - consider compression or payload reduction")
+            analysis["recommendations"].append(
+                "File exceeds maximum size limit - consider compression or payload reduction"
+            )
         elif file_size < self.config.min_file_size:
-            analysis["recommendations"].append("File is very small - consider adding benign padding")
+            analysis["recommendations"].append(
+                "File is very small - consider adding benign padding"
+            )
         elif file_size > self.config.max_file_size * 0.8:
-            analysis["recommendations"].append("File is approaching size limit - monitor closely")
+            analysis["recommendations"].append(
+                "File is approaching size limit - monitor closely"
+            )
         elif file_size < self.config.min_file_size * 2:
-            analysis["recommendations"].append("File is small - consider adding benign content")
+            analysis["recommendations"].append(
+                "File is small - consider adding benign content"
+            )
         else:
             analysis["recommendations"].append("File size is within acceptable range")
-        
-        logger.info("action=file_size_monitored size=%d max=%d within_limits=%s",
-                   file_size, self.config.max_file_size, analysis["within_limits"])
-        
+
+        logger.info(
+            "action=file_size_monitored size=%d max=%d within_limits=%s",
+            file_size,
+            self.config.max_file_size,
+            analysis["within_limits"],
+        )
+
         return analysis
-    
+
     def preserve_timestamps(self, pe_data: bytes) -> bytes:
         """Preserve or set benign timestamps in PE file.
-        
+
         Args:
             pe_data: Raw PE file bytes
-            
+
         Returns:
             PE file bytes with preserved/benign timestamps
         """
@@ -225,24 +418,27 @@ class PEDetectionMitigation:
                 elif self.config.use_benign_timestamps:
                     # Set benign timestamps
                     self._set_benign_timestamps(writer)
-                
+
                 result = writer.get_modified_data()
-            
-            logger.info("action=timestamps_preserved preserve_original=%s use_benign=%s",
-                       self.config.preserve_original_timestamps, self.config.use_benign_timestamps)
-            
+
+            logger.info(
+                "action=timestamps_preserved preserve_original=%s use_benign=%s",
+                self.config.preserve_original_timestamps,
+                self.config.use_benign_timestamps,
+            )
+
             return result
-            
+
         except Exception as e:
             logger.error("action=timestamp_preservation_failed error=%s", e)
             return pe_data
-    
+
     def optimize_section_names(self, pe_data: bytes) -> bytes:
         """Optimize PE section names to use common benign names.
-        
+
         Args:
             pe_data: Raw PE file bytes
-            
+
         Returns:
             PE file bytes with optimized section names
         """
@@ -251,41 +447,44 @@ class PEDetectionMitigation:
                 # Get current sections
                 with PEReader(pe_data) as reader:
                     sections = reader.get_sections()
-                
+
                 # Replace suspicious section names with benign ones
                 section_replacements = {}
                 for section in sections:
-                    current_name = section.name.rstrip('\x00')
+                    current_name = section.name.rstrip("\x00")
                     if self._is_suspicious_section_name(current_name):
                         benign_name = self._get_benign_section_name(current_name)
                         section_replacements[current_name] = benign_name
-                
+
                 # Apply replacements
                 for old_name, new_name in section_replacements.items():
                     writer.modify_section_name(old_name, new_name)
-                
+
                 result = writer.get_modified_data()
-            
-            logger.info("action=section_names_optimized replacements=%d", len(section_replacements))
+
+            logger.info(
+                "action=section_names_optimized replacements=%d",
+                len(section_replacements),
+            )
             return result
-            
+
         except Exception as e:
             logger.error("action=section_name_optimization_failed error=%s", e)
             return pe_data
-    
+
     def _preserve_original_timestamps(self, writer: PEWriter) -> None:
         """Preserve original timestamps in PE file.
-        
+
         Args:
             writer: PEWriter instance
         """
         # This is a simplified implementation
         # In a real implementation, we would preserve PE timestamps
         logger.info("action=original_timestamps_preserved")
-    
+
     def _set_benign_timestamps(self, writer: PEWriter) -> None:
         """Set benign timestamps in PE file.
-        
+
         Args:
             writer: PEWriter instance
         """
@@ -295,25 +494,25 @@ class PEDetectionMitigation:
             # This is a simplified implementation
             # In a real implementation, we would set PE timestamps
             logger.info("action=benign_timestamps_set timestamp=%d", timestamp)
-    
+
     def _is_suspicious_section_name(self, name: str) -> bool:
         """Check if a section name is suspicious.
-        
+
         Args:
             name: Section name to check
-            
+
         Returns:
             True if the section name is suspicious
         """
         suspicious_names = self.common_section_names["suspicious"]
         return any(suspicious in name.lower() for suspicious in suspicious_names)
-    
+
     def _get_benign_section_name(self, current_name: str) -> str:
         """Get a benign replacement for a suspicious section name.
-        
+
         Args:
             current_name: Current suspicious section name
-            
+
         Returns:
             Benign replacement section name
         """
@@ -355,44 +554,44 @@ class PEDetectionMitigation:
             ".codevirtualizer": ".got",
             ".asprotect": ".got.plt",
             ".exestealth": ".dynamic",
-            ".peid": ".interp"
+            ".peid": ".interp",
         }
-        
+
         # Check for exact matches first
         if current_name.lower() in suspicious_to_benign:
             return suspicious_to_benign[current_name.lower()]
-        
+
         # Check for partial matches
         for suspicious, benign in suspicious_to_benign.items():
             if suspicious in current_name.lower():
                 return benign
-        
+
         # Default to a random benign name
         benign_names = self.common_section_names["benign"]
         return random.choice(benign_names)
-    
+
     def create_detection_mitigation_plan(self, pe_data: bytes) -> Dict[str, Any]:
         """Create a plan for detection vector mitigation.
-        
+
         Args:
             pe_data: Raw PE file bytes
-            
+
         Returns:
             Dictionary containing mitigation plan
         """
         # Analyze file size
         size_analysis = self.monitor_file_size(pe_data)
-        
+
         # Analyze section names
         with PEReader(pe_data) as reader:
             sections = reader.get_sections()
-        
+
         suspicious_sections = []
         for section in sections:
-            section_name = section.name.rstrip('\x00')
+            section_name = section.name.rstrip("\x00")
             if self._is_suspicious_section_name(section_name):
                 suspicious_sections.append(section_name)
-        
+
         plan = {
             "file_size_monitoring": self.config.enable_file_size_monitoring,
             "timestamp_preservation": self.config.enable_timestamp_preservation,
@@ -401,23 +600,27 @@ class PEDetectionMitigation:
             "suspicious_sections": suspicious_sections,
             "total_sections": len(sections),
             "suspicious_section_count": len(suspicious_sections),
-            "mitigation_techniques": sum([
-                self.config.enable_file_size_monitoring,
-                self.config.enable_timestamp_preservation,
-                self.config.enable_section_name_optimization
-            ])
+            "mitigation_techniques": sum(
+                [
+                    self.config.enable_file_size_monitoring,
+                    self.config.enable_timestamp_preservation,
+                    self.config.enable_section_name_optimization,
+                ]
+            ),
         }
-        
+
         logger.info("action=detection_mitigation_plan_created plan=%s", plan)
         return plan
-    
-    def get_mitigation_report(self, original_data: bytes, mitigated_data: bytes) -> Dict[str, Any]:
+
+    def get_mitigation_report(
+        self, original_data: bytes, mitigated_data: bytes
+    ) -> Dict[str, Any]:
         """Generate a report of detection mitigation changes.
-        
+
         Args:
             original_data: Original PE file bytes
             mitigated_data: Mitigated PE file bytes
-            
+
         Returns:
             Dictionary containing mitigation report
         """
@@ -427,11 +630,13 @@ class PEDetectionMitigation:
             "file_size_monitoring": self.config.enable_file_size_monitoring,
             "timestamp_preservation": self.config.enable_timestamp_preservation,
             "section_name_optimization": self.config.enable_section_name_optimization,
-            "mitigation_techniques_applied": sum([
-                self.config.enable_file_size_monitoring,
-                self.config.enable_timestamp_preservation,
-                self.config.enable_section_name_optimization
-            ])
+            "mitigation_techniques_applied": sum(
+                [
+                    self.config.enable_file_size_monitoring,
+                    self.config.enable_timestamp_preservation,
+                    self.config.enable_section_name_optimization,
+                ]
+            ),
         }
-        
+
         return report

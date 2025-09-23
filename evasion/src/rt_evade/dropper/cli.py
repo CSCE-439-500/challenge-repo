@@ -11,16 +11,29 @@ from .runtime_decode import RuntimeDecode
 
 def _setup_logging() -> None:
     level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
-    logging.basicConfig(level=level, format="time=%(asctime)s level=%(levelname)s msg=%(message)s")
+    logging.basicConfig(
+        level=level, format="time=%(asctime)s level=%(levelname)s msg=%(message)s"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     _setup_logging()
-    parser = argparse.ArgumentParser(description="Dropper CLI: decode obfuscated binary at runtime and execute it")
+    parser = argparse.ArgumentParser(
+        description="Dropper CLI: decode obfuscated binary at runtime and execute it"
+    )
     parser.add_argument("input", help="Path to obfuscated binary to execute")
-    parser.add_argument("--no-strings", action="store_true", help="Do not decode Base64 string markers")
-    parser.add_argument("--xor", action="store_true", help="Decode XOR packing using DECODE_KEY env var")
-    parser.add_argument("--", dest="passthrough", nargs=argparse.REMAINDER, help="Arguments to pass to decoded binary")
+    parser.add_argument(
+        "--no-strings", action="store_true", help="Do not decode Base64 string markers"
+    )
+    parser.add_argument(
+        "--xor", action="store_true", help="Decode XOR packing using DECODE_KEY env var"
+    )
+    parser.add_argument(
+        "--",
+        dest="passthrough",
+        nargs=argparse.REMAINDER,
+        help="Arguments to pass to decoded binary",
+    )
     args = parser.parse_args(argv)
 
     require_redteam_mode()
@@ -61,5 +74,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
-

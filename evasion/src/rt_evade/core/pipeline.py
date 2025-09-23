@@ -43,5 +43,3 @@ class TransformPipeline:
         }
         logger.info("action=pipeline_summary data=%s", json.dumps(summary))
         return current
-
-

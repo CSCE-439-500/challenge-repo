@@ -14,5 +14,3 @@ def guard_can_write() -> None:
     """Gate file-system writes under explicit operator control."""
     if os.getenv("ALLOW_ACTIONS") != "true":
         raise PermissionError("Writes disabled without ALLOW_ACTIONS=true")
-
-

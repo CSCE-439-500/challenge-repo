@@ -46,5 +46,3 @@ class RuntimeDecode:
         if self.decode_strings:
             current = _decode_base64_markers(current)
         return current
-
-
