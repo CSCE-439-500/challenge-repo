@@ -36,6 +36,8 @@ def build_default_plan(args: argparse.Namespace) -> List[TransformPlan]:
             enable_string_obfuscation=args.pe_strings,
             enable_import_inflation=args.pe_imports,
             enable_section_padding=args.pe_padding,
+            enable_compression=args.pe_compression,
+            enable_code_encryption=args.pe_encryption,
             target_category=args.pe_category
         )
         obfuscator = PEObfuscator(config)
@@ -59,6 +61,8 @@ def main(argv: List[str] | None = None) -> int:
     p_transform.add_argument("--pe-strings", action="store_true", default=True, help="Enable PE string obfuscation (default: True)")
     p_transform.add_argument("--pe-imports", action="store_true", default=True, help="Enable PE import inflation (default: True)")
     p_transform.add_argument("--pe-padding", action="store_true", default=True, help="Enable PE section padding (default: True)")
+    p_transform.add_argument("--pe-compression", action="store_true", default=True, help="Enable PE compression (default: True)")
+    p_transform.add_argument("--pe-encryption", action="store_true", default=True, help="Enable PE encryption (default: True)")
     p_transform.add_argument("--pe-category", choices=["system_utility", "web_browser", "office_app"], help="Target software category for mimicry")
 
     # dropper subcommand
@@ -98,6 +102,8 @@ def main(argv: List[str] | None = None) -> int:
                 enable_string_obfuscation=args.pe_strings,
                 enable_import_inflation=args.pe_imports,
                 enable_section_padding=args.pe_padding,
+                enable_compression=args.pe_compression,
+                enable_code_encryption=args.pe_encryption,
                 target_category=args.pe_category
             )
             obfuscator = PEObfuscator(config)
