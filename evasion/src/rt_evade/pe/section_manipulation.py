@@ -91,7 +91,7 @@ class PESectionManipulator:
 
             return result
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=section_manipulation_failed error=%s", e)
             return pe_data
 
@@ -111,7 +111,7 @@ class PESectionManipulator:
                     section_name,
                     junk_size,
                 )
-            except Exception as e:
+            except (OSError, IOError, ValueError, AttributeError) as e:
                 logger.warning(
                     "action=section_padding_failed section=%s error=%s", section_name, e
                 )
@@ -132,7 +132,7 @@ class PESectionManipulator:
                     section_name,
                     len(entropy_data),
                 )
-            except Exception as e:
+            except (OSError, IOError, ValueError, AttributeError) as e:
                 logger.warning(
                     "action=entropy_increase_failed section=%s error=%s",
                     section_name,

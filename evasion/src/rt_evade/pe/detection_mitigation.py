@@ -5,13 +5,11 @@ and manage PE section names to avoid immediate detection vectors.
 """
 
 import logging
-import os
-import time
 import random
-from typing import Dict, List, Optional, Any, Tuple, Set
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode, guard_can_write
+from ..core.guards import require_redteam_mode
 from .reader import PEReader
 from .writer import PEWriter
 
@@ -472,7 +470,9 @@ class PEDetectionMitigation:
             logger.error("action=section_name_optimization_failed error=%s", e)
             return pe_data
 
-    def _preserve_original_timestamps(self, writer: PEWriter) -> None:
+    def _preserve_original_timestamps(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Preserve original timestamps in PE file.
 
         Args:
@@ -482,7 +482,9 @@ class PEDetectionMitigation:
         # In a real implementation, we would preserve PE timestamps
         logger.info("action=original_timestamps_preserved")
 
-    def _set_benign_timestamps(self, writer: PEWriter) -> None:
+    def _set_benign_timestamps(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Set benign timestamps in PE file.
 
         Args:

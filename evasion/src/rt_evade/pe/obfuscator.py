@@ -5,18 +5,19 @@ with PE file structure while maintaining execution compatibility.
 """
 
 import logging
+import secrets
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode, guard_can_write
+from ..core.guards import require_redteam_mode
 from ..core.transform import TransformPlan
 from .reader import PEReader
 from .writer import PEWriter
 from .validator import PEValidator
 from .mimicry import PEMimicryEngine
-from .import_manipulator import PEImportManipulator, ImportManipulationConfig
-from .static_evasion import PEStaticEvasion, StaticEvasionConfig
-from .detection_mitigation import PEDetectionMitigation, DetectionMitigationConfig
+from .import_manipulator import PEImportManipulator
+from .static_evasion import PEStaticEvasion
+from .detection_mitigation import PEDetectionMitigation
 from .compression import PECompressor, CompressionConfig
 from .encryption import PEEncryptor, EncryptionConfig
 from .string_obfuscation import PEStringObfuscator, StringObfuscationConfig
@@ -179,8 +180,6 @@ class PEObfuscator:
                 )
 
                 # Add benign strings
-                import secrets
-
                 for string in mimicry_plan["modifications"]["string_additions"]:
                     writer.modify_strings(
                         {f"__benign_{secrets.token_hex(4)}__": string}
@@ -188,7 +187,7 @@ class PEObfuscator:
 
                 return writer.get_modified_data()
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=mimicry_failed error=%s", e)
             return pe_data
 
@@ -247,7 +246,7 @@ class PEObfuscator:
 
             return result
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=import_manipulation_failed error=%s", e)
             return pe_data
 
@@ -300,7 +299,7 @@ class PEObfuscator:
             logger.info("action=static_evasion_applied")
             return pe_data
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=static_evasion_failed error=%s", e)
             return pe_data
 
@@ -335,11 +334,13 @@ class PEObfuscator:
             logger.info("action=detection_mitigation_applied")
             return pe_data
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=detection_mitigation_failed error=%s", e)
             return pe_data
 
-    def create_obfuscation_plan(self, pe_data: bytes) -> TransformPlan:
+    def create_obfuscation_plan(
+        self, pe_data: bytes
+    ) -> TransformPlan:  # pylint: disable=unused-argument
         """Create a transform plan for PE obfuscation.
 
         Args:
@@ -373,32 +374,43 @@ class PEObfuscator:
             "validation_results": {},
         }
 
-        # Get reports from specialized modules
+        self._add_specialized_reports(report, original_data, obfuscated_data)
+        self._add_techniques_applied(report)
+        self._add_entropy_comparison(report, original_data, obfuscated_data)
+        self._add_validation_results(report, original_data, obfuscated_data)
+
+        return report
+
+    def _add_specialized_reports(
+        self, report: Dict[str, Any], original_data: bytes, obfuscated_data: bytes
+    ) -> None:
+        """Add reports from specialized modules."""
         if self.config.enable_compression:
-            compression_report = self.compressor.get_compression_report(
+            report["compression"] = self.compressor.get_compression_report(
                 original_data, obfuscated_data
             )
-            report["compression"] = compression_report
 
         if self.config.enable_code_encryption:
-            encryption_report = self.encryptor.get_encryption_report(
+            report["encryption"] = self.encryptor.get_encryption_report(
                 original_data, obfuscated_data
             )
-            report["encryption"] = encryption_report
 
         if self.config.enable_string_obfuscation:
-            string_report = self.string_obfuscator.get_string_obfuscation_report(
+            report[
+                "string_obfuscation"
+            ] = self.string_obfuscator.get_string_obfuscation_report(
                 original_data, obfuscated_data
             )
-            report["string_obfuscation"] = string_report
 
         if self.config.enable_section_padding or self.config.enable_entropy_increase:
-            section_report = self.section_manipulator.get_section_manipulation_report(
+            report[
+                "section_manipulation"
+            ] = self.section_manipulator.get_section_manipulation_report(
                 original_data, obfuscated_data
             )
-            report["section_manipulation"] = section_report
 
-        # Check if various techniques were applied
+    def _add_techniques_applied(self, report: Dict[str, Any]) -> None:
+        """Add information about which techniques were applied."""
         report["techniques_applied"] = {
             "mimicry": self.config.enable_mimicry,
             "string_obfuscation": self.config.enable_string_obfuscation,
@@ -412,7 +424,10 @@ class PEObfuscator:
             "detection_mitigation": self.config.enable_detection_mitigation,
         }
 
-        # Compare entropy
+    def _add_entropy_comparison(
+        self, report: Dict[str, Any], original_data: bytes, obfuscated_data: bytes
+    ) -> None:
+        """Add entropy comparison to the report."""
         try:
             with PEReader(original_data) as orig_reader:
                 orig_entropy = orig_reader.get_entropy_analysis()
@@ -420,19 +435,21 @@ class PEObfuscator:
             with PEReader(obfuscated_data) as obf_reader:
                 obf_entropy = obf_reader.get_entropy_analysis()
 
-            for section_name in orig_entropy:
+            for section_name, orig_value in orig_entropy.items():
                 if section_name in obf_entropy:
                     report["entropy_changes"][section_name] = {
-                        "original": orig_entropy[section_name],
+                        "original": orig_value,
                         "obfuscated": obf_entropy[section_name],
-                        "change": obf_entropy[section_name]
-                        - orig_entropy[section_name],
+                        "change": obf_entropy[section_name] - orig_value,
                     }
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=entropy_comparison_failed error=%s", e)
 
-        # Validation results
+    def _add_validation_results(
+        self, report: Dict[str, Any], original_data: bytes, obfuscated_data: bytes
+    ) -> None:
+        """Add validation results to the report."""
         orig_validation = self.validator.validate_pe(original_data)
         obf_validation = self.validator.validate_pe(obfuscated_data)
 
@@ -442,5 +459,3 @@ class PEObfuscator:
             "original_errors": len(orig_validation["errors"]),
             "obfuscated_errors": len(obf_validation["errors"]),
         }
-
-        return report

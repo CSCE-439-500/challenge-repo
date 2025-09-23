@@ -5,20 +5,18 @@ that modified PE files maintain proper format and can execute correctly.
 """
 
 import logging
-import os
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Dict, Any
 import pefile
 from pefile import PE
 
 from ..core.guards import require_redteam_mode
+from ..core.constants import SUSPICIOUS_API_FUNCTIONS, SUSPICIOUS_DLLS
 
 logger = logging.getLogger(__name__)
 
 
 class PEValidationError(Exception):
     """Exception raised when PE validation fails."""
-
-    pass
 
 
 class PEValidator:
@@ -78,7 +76,7 @@ class PEValidator:
         except pefile.PEFormatError as e:
             self.validation_results["valid"] = False
             self.validation_results["errors"].append(f"PE format error: {e}")
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             self.validation_results["valid"] = False
             self.validation_results["errors"].append(f"Unexpected error: {e}")
 
@@ -161,7 +159,7 @@ class PEValidator:
         virtual_addresses = set()
         raw_addresses = set()
 
-        for i, section in enumerate(pe.sections):
+        for section in pe.sections:
             # Check section name
             section_name = section.Name.decode("utf-8", errors="ignore").rstrip("\x00")
             if section_name in section_names:
@@ -173,14 +171,16 @@ class PEValidator:
             # Check virtual address
             if section.VirtualAddress in virtual_addresses:
                 self.validation_results["errors"].append(
-                    f"Duplicate virtual address in section {section_name}: 0x{section.VirtualAddress:x}"
+                    f"Duplicate virtual address in section {section_name}: "
+                    f"0x{section.VirtualAddress:x}"
                 )
             virtual_addresses.add(section.VirtualAddress)
 
             # Check raw address
             if section.PointerToRawData in raw_addresses:
                 self.validation_results["warnings"].append(
-                    f"Duplicate raw address in section {section_name}: 0x{section.PointerToRawData:x}"
+                    f"Duplicate raw address in section {section_name}: "
+                    f"0x{section.PointerToRawData:x}"
                 )
             raw_addresses.add(section.PointerToRawData)
 
@@ -216,20 +216,8 @@ class PEValidator:
                     import_functions.add(f"{dll_name}.{function_name}")
 
         # Check for suspicious imports
-        suspicious_dlls = ["kernel32.dll", "ntdll.dll", "advapi32.dll"]
-        suspicious_functions = [
-            "CreateProcess",
-            "CreateRemoteThread",
-            "VirtualAlloc",
-            "WriteProcessMemory",
-            "ReadProcessMemory",
-            "OpenProcess",
-            "TerminateProcess",
-            "LoadLibrary",
-            "GetProcAddress",
-            "SetWindowsHookEx",
-            "RegisterHotKey",
-        ]
+        suspicious_dlls = SUSPICIOUS_DLLS
+        suspicious_functions = SUSPICIOUS_API_FUNCTIONS
 
         for dll in import_dlls:
             if dll in suspicious_dlls:
@@ -325,7 +313,13 @@ class PEValidator:
             pe.close()
             return True
 
-        except Exception as e:
+        except (
+            OSError,
+            IOError,
+            ValueError,
+            AttributeError,
+            pefile.PEFormatError,
+        ) as e:
             logger.error("action=execution_validation_failed error=%s", e)
             return False
 

@@ -5,15 +5,13 @@ by copying characteristics from benign PE samples.
 """
 
 import logging
-import os
-import random
 import json
-from pathlib import Path
-from typing import Dict, List, Optional, Any, Tuple
+import os
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 from ..core.guards import require_redteam_mode
-from .reader import PEReader, PEHeaderInfo, PESectionInfo, PEImportInfo
+from .reader import PEReader
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +61,7 @@ class PEMimicryEngine:
             return
 
         try:
-            with open(self.template_db_path, "r") as f:
+            with open(self.template_db_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             for template_data in data.get("templates", []):
@@ -79,7 +77,7 @@ class PEMimicryEngine:
 
             logger.info("action=templates_loaded count=%d", len(self.templates))
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, json.JSONDecodeError) as e:
             logger.error("action=template_load_failed error=%s", e)
             self._create_default_templates()
 
@@ -361,7 +359,23 @@ class PEMimicryEngine:
             logger.warning("action=no_mimicry_template_found")
             return {}
 
-        mimicry_plan = {
+        mimicry_plan = self._create_base_mimicry_plan(template)
+        self._add_header_modifications(mimicry_plan, template, pe_characteristics)
+        self._add_section_modifications(mimicry_plan, template, pe_characteristics)
+        self._add_import_modifications(mimicry_plan, template, pe_characteristics)
+        self._add_string_modifications(mimicry_plan, template)
+
+        logger.info(
+            "action=mimicry_plan_generated template=%s modifications=%d",
+            template.name,
+            len(mimicry_plan["modifications"]),
+        )
+
+        return mimicry_plan
+
+    def _create_base_mimicry_plan(self, template) -> Dict[str, Any]:
+        """Create the base mimicry plan structure."""
+        return {
             "template_name": template.name,
             "template_category": template.category,
             "modifications": {
@@ -372,16 +386,24 @@ class PEMimicryEngine:
             },
         }
 
-        # Plan header modifications
-        if "header" in template.characteristics:
-            template_header = template.characteristics["header"]
-            current_header = pe_characteristics.get("header", {})
+    def _add_header_modifications(
+        self, mimicry_plan: Dict[str, Any], template, pe_characteristics: Dict[str, Any]
+    ) -> None:
+        """Add header modifications to the mimicry plan."""
+        if "header" not in template.characteristics:
+            return
 
-            for key, value in template_header.items():
-                if current_header.get(key) != value:
-                    mimicry_plan["modifications"]["header_changes"][key] = value
+        template_header = template.characteristics["header"]
+        current_header = pe_characteristics.get("header", {})
 
-        # Plan section additions
+        for key, value in template_header.items():
+            if current_header.get(key) != value:
+                mimicry_plan["modifications"]["header_changes"][key] = value
+
+    def _add_section_modifications(
+        self, mimicry_plan: Dict[str, Any], template, pe_characteristics: Dict[str, Any]
+    ) -> None:
+        """Add section modifications to the mimicry plan."""
         current_sections = set(pe_characteristics.get("sections", {}).keys())
         template_sections = set(template.section_names)
 
@@ -396,7 +418,10 @@ class PEMimicryEngine:
                     }
                 )
 
-        # Plan import additions
+    def _add_import_modifications(
+        self, mimicry_plan: Dict[str, Any], template, pe_characteristics: Dict[str, Any]
+    ) -> None:
+        """Add import modifications to the mimicry plan."""
         current_imports = pe_characteristics.get("imports", {})
         template_imports = template.characteristics.get("imports", {})
 
@@ -406,18 +431,11 @@ class PEMimicryEngine:
                     {"dll": dll_name, "functions": functions}
                 )
 
-        # Plan string additions
+    def _add_string_modifications(self, mimicry_plan: Dict[str, Any], template) -> None:
+        """Add string modifications to the mimicry plan."""
         mimicry_plan["modifications"][
             "string_additions"
         ] = self._generate_benign_strings(template)
-
-        logger.info(
-            "action=mimicry_plan_generated template=%s modifications=%d",
-            template.name,
-            len(mimicry_plan["modifications"]),
-        )
-
-        return mimicry_plan
 
     def _generate_benign_strings(self, template: BenignTemplate) -> List[str]:
         """Generate benign strings based on template category."""
@@ -500,7 +518,7 @@ class PEMimicryEngine:
                 ]
             }
 
-            with open(self.template_db_path, "w") as f:
+            with open(self.template_db_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
             logger.info(
@@ -509,7 +527,7 @@ class PEMimicryEngine:
                 len(self.templates),
             )
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error("action=template_save_failed error=%s", e)
 
     def add_template_from_pe(self, pe_data: bytes, name: str, category: str) -> bool:
@@ -555,6 +573,6 @@ class PEMimicryEngine:
             logger.info("action=template_added name=%s category=%s", name, category)
             return True
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=template_add_failed name=%s error=%s", name, e)
             return False

@@ -5,14 +5,13 @@ to inject benign imports and dead code for evasion purposes.
 """
 
 import logging
-import os
 import secrets
 import random
-from typing import Dict, List, Optional, Any, Tuple, Set
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode, guard_can_write
-from .reader import PEReader, PESectionInfo
+from ..core.guards import require_redteam_mode
+from .reader import PEReader
 
 logger = logging.getLogger(__name__)
 
@@ -398,18 +397,19 @@ class PEImportManipulator:
                 imports = reader.get_imports()
 
             import_entries = []
-            for dll_name, functions in imports.items():
-                for func_name in functions:
-                    import_entries.append(
-                        ImportEntry(
-                            dll_name=dll_name, function_name=func_name, is_used=True
-                        )
+            for import_info in imports:
+                import_entries.append(
+                    ImportEntry(
+                        dll_name=import_info.dll_name,
+                        function_name=import_info.function_name,
+                        is_used=True,
                     )
+                )
 
             logger.info("action=imports_analyzed count=%d", len(import_entries))
             return import_entries
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=import_analysis_failed error=%s", e)
             return []
 
@@ -495,7 +495,7 @@ class PEImportManipulator:
             "BOOL __verify_{}() {{ return FALSE; }}",
         ]
 
-        for i in range(max_functions):
+        for _ in range(max_functions):
             template = random.choice(function_templates)
             func_name = f"func_{secrets.token_hex(4)}"
             dead_functions.append(template.format(func_name))

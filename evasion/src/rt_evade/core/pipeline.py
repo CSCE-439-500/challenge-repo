@@ -1,3 +1,8 @@
+"""Transform pipeline for applying multiple transformations to binary data.
+
+This module provides a composable pipeline system for applying multiple
+transformations to binary data in sequence, with logging and hash tracking.
+"""
 import hashlib
 import json
 import logging
@@ -9,6 +14,14 @@ logger = logging.getLogger(__name__)
 
 
 def _sha256(data: bytes) -> str:
+    """Calculate SHA256 hash of binary data.
+
+    Args:
+        data: Binary data to hash
+
+    Returns:
+        Hexadecimal string representation of the hash
+    """
     return hashlib.sha256(data).hexdigest()
 
 
@@ -19,9 +32,22 @@ class TransformPipeline:
         self._steps: List[TransformPlan] = []
 
     def add(self, plan: TransformPlan) -> None:
+        """Add a transformation plan to the pipeline.
+
+        Args:
+            plan: The transformation plan to add
+        """
         self._steps.append(plan)
 
     def apply_all(self, data: bytes) -> bytes:
+        """Apply all transformation plans in sequence to the input data.
+
+        Args:
+            data: Input binary data to transform
+
+        Returns:
+            Transformed binary data after applying all steps
+        """
         before_hash = _sha256(data)
         current = data
         for idx, step in enumerate(self._steps):

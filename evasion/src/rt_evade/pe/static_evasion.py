@@ -5,14 +5,12 @@ and eliminate static analysis artifacts from PE files.
 """
 
 import logging
-import os
 import secrets
-import random
-from typing import Dict, List, Optional, Any, Tuple, Set
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode, guard_can_write
-from .reader import PEReader
+from ..core.guards import require_redteam_mode
+from ..core.constants import MALWARE_STRINGS, SUSPICIOUS_API_FUNCTIONS
 from .writer import PEWriter
 
 logger = logging.getLogger(__name__)
@@ -56,427 +54,7 @@ class PEStaticEvasion:
         Returns:
             List of suspicious string patterns
         """
-        return [
-            # Malware-related strings
-            "malware",
-            "virus",
-            "trojan",
-            "backdoor",
-            "payload",
-            "inject",
-            "exploit",
-            "shellcode",
-            "keylogger",
-            "rootkit",
-            "botnet",
-            "ransomware",
-            "cryptominer",
-            "stealer",
-            "rat",
-            "worm",
-            # Suspicious API calls
-            "CreateProcess",
-            "VirtualAlloc",
-            "WriteProcessMemory",
-            "ReadProcessMemory",
-            "OpenProcess",
-            "TerminateProcess",
-            "LoadLibrary",
-            "GetProcAddress",
-            "SetWindowsHookEx",
-            "RegisterHotKey",
-            "CreateRemoteThread",
-            "VirtualProtect",
-            "VirtualFree",
-            "HeapAlloc",
-            "HeapFree",
-            "CreateFileMapping",
-            "MapViewOfFile",
-            "UnmapViewOfFile",
-            "CreateMutex",
-            "OpenMutex",
-            "WaitForSingleObject",
-            "ReleaseMutex",
-            "CreateEvent",
-            "SetEvent",
-            "ResetEvent",
-            "PulseEvent",
-            "CreateSemaphore",
-            "OpenSemaphore",
-            "ReleaseSemaphore",
-            "CreateThread",
-            "ResumeThread",
-            "SuspendThread",
-            "ExitThread",
-            "CreateToolhelp32Snapshot",
-            "Process32First",
-            "Process32Next",
-            "Module32First",
-            "Module32Next",
-            "Thread32First",
-            "Thread32Next",
-            # Network-related suspicious calls
-            "WSAStartup",
-            "WSACleanup",
-            "socket",
-            "bind",
-            "listen",
-            "accept",
-            "connect",
-            "send",
-            "recv",
-            "closesocket",
-            "gethostbyname",
-            "inet_addr",
-            "inet_ntoa",
-            "htons",
-            "ntohs",
-            "htons",
-            "ntohs",
-            "InternetOpen",
-            "InternetOpenUrl",
-            "InternetReadFile",
-            "InternetCloseHandle",
-            "HttpOpenRequest",
-            "HttpSendRequest",
-            "HttpQueryInfo",
-            # Registry manipulation
-            "RegOpenKeyEx",
-            "RegCloseKey",
-            "RegQueryValueEx",
-            "RegSetValueEx",
-            "RegDeleteValue",
-            "RegEnumKeyEx",
-            "RegEnumValue",
-            "RegCreateKeyEx",
-            "RegDeleteKey",
-            "RegFlushKey",
-            "RegLoadKey",
-            "RegSaveKey",
-            # File system manipulation
-            "FindFirstFile",
-            "FindNextFile",
-            "FindClose",
-            "GetFileAttributes",
-            "SetFileAttributes",
-            "DeleteFile",
-            "CopyFile",
-            "MoveFile",
-            "CreateDirectory",
-            "RemoveDirectory",
-            "GetTempPath",
-            "GetTempFileName",
-            # Process manipulation
-            "EnumProcesses",
-            "EnumProcessModules",
-            "GetModuleInformation",
-            "GetModuleBaseName",
-            "GetModuleFileNameEx",
-            "EnumWindows",
-            "GetWindowThreadProcessId",
-            "GetWindowText",
-            "SetWindowText",
-            # Debugging and anti-debugging
-            "IsDebuggerPresent",
-            "CheckRemoteDebuggerPresent",
-            "OutputDebugString",
-            "DebugBreak",
-            "DebugActiveProcess",
-            "DebugActiveProcessStop",
-            "NtQueryInformationProcess",
-            "NtSetInformationThread",
-            # Cryptography
-            "CryptAcquireContext",
-            "CryptCreateHash",
-            "CryptHashData",
-            "CryptDeriveKey",
-            "CryptEncrypt",
-            "CryptDecrypt",
-            "CryptDestroyHash",
-            "CryptDestroyKey",
-            "CryptReleaseContext",
-            "CryptGenKey",
-            "CryptImportKey",
-            "CryptExportKey",
-            "CryptSignHash",
-            "CryptVerifySignature",
-            # Service manipulation
-            "OpenSCManager",
-            "OpenService",
-            "StartService",
-            "ControlService",
-            "QueryServiceStatus",
-            "QueryServiceConfig",
-            "ChangeServiceConfig",
-            "CreateService",
-            "DeleteService",
-            "CloseServiceHandle",
-            # WMI and COM
-            "CoInitialize",
-            "CoUninitialize",
-            "CoCreateInstance",
-            "CoGetObject",
-            "IWbemLocator",
-            "IWbemServices",
-            "IWbemClassObject",
-            "ExecQuery",
-            "CreateInstanceEnum",
-            "Next",
-            "Get",
-            "Put",
-            "Delete",
-            "DeleteInstance",
-            # PowerShell and scripting
-            "powershell",
-            "cmd.exe",
-            "wscript.exe",
-            "cscript.exe",
-            "mshta.exe",
-            "rundll32.exe",
-            "regsvr32.exe",
-            "certutil.exe",
-            "bitsadmin.exe",
-            "wmic.exe",
-            "schtasks.exe",
-            "at.exe",
-            "net.exe",
-            "sc.exe",
-            # Suspicious file extensions and paths
-            ".exe",
-            ".dll",
-            ".bat",
-            ".cmd",
-            ".ps1",
-            ".vbs",
-            ".js",
-            ".hta",
-            "temp",
-            "tmp",
-            "appdata",
-            "localappdata",
-            "programdata",
-            "system32",
-            "syswow64",
-            "windows",
-            "program files",
-            # Network indicators
-            "http://",
-            "https://",
-            "ftp://",
-            "tcp://",
-            "udp://",
-            "127.0.0.1",
-            "localhost",
-            "0.0.0.0",
-            "255.255.255.255",
-            "192.168.",
-            "10.",
-            "172.16.",
-            "172.17.",
-            "172.18.",
-            "172.19.",
-            "172.20.",
-            "172.21.",
-            "172.22.",
-            "172.23.",
-            "172.24.",
-            "172.25.",
-            "172.26.",
-            "172.27.",
-            "172.28.",
-            "172.29.",
-            "172.30.",
-            "172.31.",
-            # Common malware families
-            "zeus",
-            "citadel",
-            "spyeye",
-            "carberp",
-            "shylock",
-            "dridex",
-            "locky",
-            "cerber",
-            "teslacrypt",
-            "cryptolocker",
-            "wannacry",
-            "petya",
-            "notpetya",
-            "badrabbit",
-            "ryuk",
-            "maze",
-            "conti",
-            "sodinokibi",
-            "revil",
-            "babuk",
-            "avaddon",
-            "darkSide",
-            # Obfuscation indicators
-            "obfuscated",
-            "encoded",
-            "encrypted",
-            "packed",
-            "compressed",
-            "base64",
-            "xor",
-            "rc4",
-            "aes",
-            "des",
-            "3des",
-            "blowfish",
-            "md5",
-            "sha1",
-            "sha256",
-            "sha512",
-            "hmac",
-            "pbkdf2",
-            # Anti-analysis
-            "vmware",
-            "virtualbox",
-            "vbox",
-            "qemu",
-            "sandbox",
-            "analysis",
-            "debugger",
-            "disassembler",
-            "decompiler",
-            "reverse",
-            "engineering",
-            "ida",
-            "ollydbg",
-            "windbg",
-            "x64dbg",
-            "immunity",
-            "debugger",
-            "wireshark",
-            "fiddler",
-            "procmon",
-            "procexp",
-            "autoruns",
-            "regmon",
-            "filemon",
-            "tcpview",
-            "netstat",
-            "netmon",
-            # Persistence mechanisms
-            "run",
-            "runonce",
-            "runservices",
-            "runservicesonce",
-            "startup",
-            "autostart",
-            "shell",
-            "userinit",
-            "winlogon",
-            "gina",
-            "sas",
-            "scrnsave",
-            "screensaver",
-            "taskbar",
-            "notification",
-            "tray",
-            "systray",
-            "quicklaunch",
-            "common startup",
-            "all users",
-            # Privilege escalation
-            "getsystem",
-            "bypassuac",
-            "uac",
-            "elevation",
-            "privilege",
-            "token",
-            "impersonate",
-            "duplicate",
-            "adjust",
-            "enable",
-            "disable",
-            "remove",
-            "assign",
-            "revoke",
-            "grant",
-            "deny",
-            # Lateral movement
-            "psexec",
-            "wmi",
-            "dcom",
-            "smb",
-            "netbios",
-            "ldap",
-            "kerberos",
-            "ntlm",
-            "pass-the-hash",
-            "pass-the-ticket",
-            "golden",
-            "silver",
-            "dcsync",
-            "mimikatz",
-            "sekurlsa",
-            "wdigest",
-            "tspkg",
-            "kerberos",
-            # Data exfiltration
-            "exfiltrate",
-            "exfil",
-            "exfiltration",
-            "data",
-            "steal",
-            "stealer",
-            "harvest",
-            "collect",
-            "gather",
-            "extract",
-            "dump",
-            "export",
-            "upload",
-            "download",
-            "transfer",
-            "send",
-            "receive",
-            "transmit",
-            # Command and control
-            "c2",
-            "c&c",
-            "command",
-            "control",
-            "server",
-            "client",
-            "bot",
-            "botnet",
-            "zombie",
-            "slave",
-            "agent",
-            "implant",
-            "beacon",
-            "callback",
-            "checkin",
-            "heartbeat",
-            "ping",
-            "pong",
-            "alive",
-            # Evasion techniques
-            "evade",
-            "evasion",
-            "bypass",
-            "detection",
-            "av",
-            "antivirus",
-            "firewall",
-            "ids",
-            "ips",
-            "siem",
-            "edr",
-            "xdr",
-            "mdr",
-            "sandbox",
-            "emulation",
-            "virtualization",
-            "hypervisor",
-            "vm",
-            "container",
-            "docker",
-            "kubernetes",
-            "orchestration",
-        ]
+        return MALWARE_STRINGS + SUSPICIOUS_API_FUNCTIONS
 
     def _load_tool_signatures(self) -> Dict[str, List[str]]:
         """Load tool signatures to remove.
@@ -726,7 +304,7 @@ class PEStaticEvasion:
         try:
             with PEWriter(pe_data) as writer:
                 # Remove tool signature strings
-                for category, signatures in self.tool_signatures.items():
+                for signatures in self.tool_signatures.values():
                     for signature in signatures:
                         # Replace with benign alternatives or remove
                         replacement = self._get_benign_replacement(signature)
@@ -770,7 +348,9 @@ class PEStaticEvasion:
             logger.error("action=suspicious_string_removal_failed error=%s", e)
             return pe_data
 
-    def _randomize_timestamps(self, writer: PEWriter) -> None:
+    def _randomize_timestamps(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Randomize timestamps in PE file.
 
         Args:
@@ -780,7 +360,9 @@ class PEStaticEvasion:
         # In a real implementation, we would modify PE timestamps
         logger.info("action=timestamps_randomized")
 
-    def _remove_compiler_info(self, writer: PEWriter) -> None:
+    def _remove_compiler_info(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Remove compiler information from PE file.
 
         Args:
@@ -790,7 +372,9 @@ class PEStaticEvasion:
         # In a real implementation, we would remove compiler-specific metadata
         logger.info("action=compiler_info_removed")
 
-    def _clean_other_metadata(self, writer: PEWriter) -> None:
+    def _clean_other_metadata(
+        self, writer: PEWriter
+    ) -> None:  # pylint: disable=unused-argument
         """Clean other metadata from PE file.
 
         Args:
@@ -812,12 +396,13 @@ class PEStaticEvasion:
         # Generate a random benign-looking replacement
         if len(original) <= 3:
             return "x" * len(original)
-        elif len(original) <= 10:
+        if len(original) <= 10:
             return f"func_{secrets.token_hex(2)}"
-        else:
-            return f"routine_{secrets.token_hex(4)}"
+        return f"routine_{secrets.token_hex(4)}"
 
-    def create_static_evasion_plan(self, pe_data: bytes) -> Dict[str, Any]:
+    def create_static_evasion_plan(
+        self, pe_data: bytes
+    ) -> Dict[str, Any]:  # pylint: disable=unused-argument
         """Create a plan for static analysis evasion.
 
         Args:

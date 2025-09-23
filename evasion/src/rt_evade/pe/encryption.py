@@ -119,7 +119,7 @@ class PEEncryptor:
 
             return result
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("action=code_encryption_failed error=%s", e)
             return pe_data
 
@@ -138,11 +138,9 @@ class PEEncryptor:
             key_bytes = env_key.encode("utf-8")
             if len(key_bytes) >= key_size:
                 return key_bytes[:key_size]
-            else:
-                return key_bytes + b"\x00" * (key_size - len(key_bytes))
-        else:
-            # Generate random key
-            return secrets.token_bytes(key_size)
+            return key_bytes + b"\x00" * (key_size - len(key_bytes))
+        # Generate random key
+        return secrets.token_bytes(key_size)
 
     def _encrypt_data(self, data: bytes, key: bytes) -> bytes:
         """Encrypt data using the configured algorithm.
@@ -158,13 +156,12 @@ class PEEncryptor:
 
         if algorithm == "xor":
             return self._xor_encrypt(data, key)
-        elif algorithm == "simple":
+        if algorithm == "simple":
             return self._simple_encrypt(data, key)
-        else:
-            logger.warning(
-                "action=unknown_encryption_algorithm algorithm=%s using_xor", algorithm
-            )
-            return self._xor_encrypt(data, key)
+        logger.warning(
+            "action=unknown_encryption_algorithm algorithm=%s using_xor", algorithm
+        )
+        return self._xor_encrypt(data, key)
 
     def _xor_encrypt(self, data: bytes, key: bytes) -> bytes:
         """XOR encryption with key cycling.

@@ -1,3 +1,8 @@
+"""Command-line interface for the dropper functionality.
+
+This module provides the CLI for decoding and executing obfuscated binaries
+at runtime with proper security guards.
+"""
 import argparse
 import logging
 import os
@@ -10,6 +15,7 @@ from .runtime_decode import RuntimeDecode
 
 
 def _setup_logging() -> None:
+    """Set up logging configuration based on environment variables."""
     level = logging.getLevelName(os.getenv("LOG_LEVEL", "INFO").upper())
     logging.basicConfig(
         level=level, format="time=%(asctime)s level=%(levelname)s msg=%(message)s"
@@ -17,6 +23,14 @@ def _setup_logging() -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Main entry point for the dropper CLI.
+
+    Args:
+        argv: Command line arguments (for testing)
+
+    Returns:
+        Exit code from the executed binary
+    """
     _setup_logging()
     parser = argparse.ArgumentParser(
         description="Dropper CLI: decode obfuscated binary at runtime and execute it"

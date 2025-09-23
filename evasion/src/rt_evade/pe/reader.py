@@ -5,11 +5,10 @@ ROE guardrails. It focuses on in-memory analysis without side effects.
 """
 
 import logging
-import os
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Any
 import pefile
-from pefile import PE, SectionStructure, ImportDescData
+from pefile import PE
 
 from ..core.guards import require_redteam_mode
 
