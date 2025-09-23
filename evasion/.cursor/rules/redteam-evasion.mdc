@@ -80,3 +80,4 @@ description: Red-team playbook summary of MLSEC 2020 evasion with XOR/Base64, dr
 
 # CONSTRAINTS
 - Max file size we can create is 5 MB
+- Must be a SINGLE executable PE in the end

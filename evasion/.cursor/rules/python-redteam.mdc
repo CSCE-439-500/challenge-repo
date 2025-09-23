@@ -103,3 +103,4 @@ def guard_can_write() -> None:
 - XOR/Base64 encoding -> Hides headers & strings, bypasses string-based models
 - Using a combination of the techniques will lead to covering the weaknesses that each technique has
 - Which will lead to a high chance of the malware looking identical to benign software and still executing as intended
+- Must be a SINGLE executable PE in the end

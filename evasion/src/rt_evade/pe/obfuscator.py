@@ -5,13 +5,7 @@ with PE file structure while maintaining execution compatibility.
 """
 
 import logging
-import os
-import secrets
-import base64
-import zlib
-import gzip
-import bz2
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
 from ..core.guards import require_redteam_mode, guard_can_write
@@ -20,6 +14,13 @@ from .reader import PEReader
 from .writer import PEWriter
 from .validator import PEValidator
 from .mimicry import PEMimicryEngine
+from .import_manipulator import PEImportManipulator, ImportManipulationConfig
+from .static_evasion import PEStaticEvasion, StaticEvasionConfig
+from .detection_mitigation import PEDetectionMitigation, DetectionMitigationConfig
+from .compression import PECompressor, CompressionConfig
+from .encryption import PEEncryptor, EncryptionConfig
+from .string_obfuscation import PEStringObfuscator, StringObfuscationConfig
+from .section_manipulation import PESectionManipulator, SectionManipulationConfig
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,18 @@ class PEObfuscationConfig:
     enable_section_padding: bool = True
     enable_entropy_increase: bool = True
     enable_compression: bool = True
-    compression_algorithm: str = "zlib"  # zlib, gzip, bz2
-    compression_level: int = 6  # 1-9 for zlib/gzip, 1-9 for bz2
+    enable_code_encryption: bool = True
+    enable_import_manipulation: bool = True
+    enable_static_evasion: bool = True
+    enable_detection_mitigation: bool = True
     target_category: Optional[str] = None
     max_file_size: int = 5 * 1024 * 1024  # 5MB limit
+    
+    # Sub-configurations
+    compression_config: Optional[CompressionConfig] = None
+    encryption_config: Optional[EncryptionConfig] = None
+    string_obfuscation_config: Optional[StringObfuscationConfig] = None
+    section_manipulation_config: Optional[SectionManipulationConfig] = None
 
 
 class PEObfuscator:
@@ -57,6 +66,15 @@ class PEObfuscator:
         self.config = config or PEObfuscationConfig()
         self.validator = PEValidator()
         self.mimicry_engine = PEMimicryEngine()
+        self.import_manipulator = PEImportManipulator()
+        self.static_evasion = PEStaticEvasion()
+        self.detection_mitigation = PEDetectionMitigation()
+        
+        # Initialize specialized obfuscators
+        self.compressor = PECompressor(self.config.compression_config)
+        self.encryptor = PEEncryptor(self.config.encryption_config)
+        self.string_obfuscator = PEStringObfuscator(self.config.string_obfuscation_config)
+        self.section_manipulator = PESectionManipulator(self.config.section_manipulation_config)
         
         logger.info("action=pe_obfuscator_initialized config=%s", self.config)
     
@@ -91,19 +109,28 @@ class PEObfuscator:
             obfuscated_data = self._apply_mimicry(obfuscated_data)
         
         if self.config.enable_string_obfuscation:
-            obfuscated_data = self._apply_string_obfuscation(obfuscated_data)
+            obfuscated_data = self.string_obfuscator.obfuscate_strings(obfuscated_data)
         
         if self.config.enable_import_inflation:
             obfuscated_data = self._apply_import_inflation(obfuscated_data)
         
-        if self.config.enable_section_padding:
-            obfuscated_data = self._apply_section_padding(obfuscated_data)
-        
-        if self.config.enable_entropy_increase:
-            obfuscated_data = self._apply_entropy_increase(obfuscated_data)
+        if self.config.enable_section_padding or self.config.enable_entropy_increase:
+            obfuscated_data = self.section_manipulator.manipulate_sections(obfuscated_data)
         
         if self.config.enable_compression:
-            obfuscated_data = self._apply_compression(obfuscated_data)
+            obfuscated_data = self.compressor.compress_pe(obfuscated_data)
+        
+        if self.config.enable_code_encryption:
+            obfuscated_data = self.encryptor.encrypt_pe(obfuscated_data)
+        
+        if self.config.enable_import_manipulation:
+            obfuscated_data = self._apply_import_manipulation(obfuscated_data)
+        
+        if self.config.enable_static_evasion:
+            obfuscated_data = self._apply_static_evasion(obfuscated_data)
+        
+        if self.config.enable_detection_mitigation:
+            obfuscated_data = self._apply_detection_mitigation(obfuscated_data)
         
         # Validate final result
         final_validation = self.validator.validate_pe(bytes(obfuscated_data))
@@ -138,6 +165,7 @@ class PEObfuscator:
                            mimicry_plan["template_name"])
                 
                 # Add benign strings
+                import secrets
                 for string in mimicry_plan["modifications"]["string_additions"]:
                     writer.modify_strings({f"__benign_{secrets.token_hex(4)}__": string})
                 
@@ -147,55 +175,6 @@ class PEObfuscator:
             logger.error("action=mimicry_failed error=%s", e)
             return pe_data
     
-    def _apply_string_obfuscation(self, pe_data: bytes) -> bytes:
-        """Apply string obfuscation to hide suspicious strings."""
-        try:
-            with PEReader(pe_data) as reader:
-                strings = reader.get_strings(min_length=4)
-            
-            # Identify suspicious strings to obfuscate
-            suspicious_strings = self._identify_suspicious_strings(strings)
-            
-            if not suspicious_strings:
-                logger.info("action=no_suspicious_strings_found")
-                return pe_data
-            
-            # Create obfuscation mappings
-            obfuscation_map = {}
-            for string in suspicious_strings:
-                # Use Base64 encoding for obfuscation
-                obfuscated = base64.b64encode(string.encode('utf-8')).decode('ascii')
-                obfuscation_map[string] = f"__b64_{obfuscated}__"
-            
-            # Apply string replacements
-            with PEWriter(pe_data) as writer:
-                writer.modify_strings(obfuscation_map)
-                result = writer.get_modified_data()
-            
-            logger.info("action=string_obfuscation_applied strings=%d", len(obfuscation_map))
-            return result
-            
-        except Exception as e:
-            logger.error("action=string_obfuscation_failed error=%s", e)
-            return pe_data
-    
-    def _identify_suspicious_strings(self, strings: List[str]) -> List[str]:
-        """Identify suspicious strings that should be obfuscated."""
-        suspicious_patterns = [
-            "malware", "virus", "trojan", "backdoor", "payload", "inject",
-            "exploit", "shellcode", "keylogger", "rootkit", "botnet",
-            "CreateProcess", "VirtualAlloc", "WriteProcessMemory", "ReadProcessMemory",
-            "OpenProcess", "TerminateProcess", "LoadLibrary", "GetProcAddress",
-            "SetWindowsHookEx", "RegisterHotKey", "CreateRemoteThread"
-        ]
-        
-        suspicious_strings = []
-        for string in strings:
-            string_lower = string.lower()
-            if any(pattern in string_lower for pattern in suspicious_patterns):
-                suspicious_strings.append(string)
-        
-        return suspicious_strings
     
     def _apply_import_inflation(self, pe_data: bytes) -> bytes:
         """Apply import table inflation with benign imports."""
@@ -204,127 +183,133 @@ class PEObfuscator:
         logger.info("action=import_inflation_skipped reason=complex_pe_manipulation_required")
         return pe_data
     
-    def _apply_section_padding(self, pe_data: bytes) -> bytes:
-        """Apply padding to sections to increase entropy."""
-        try:
-            with PEWriter(pe_data) as writer:
-                # Add junk data to existing sections
-                sections_to_pad = [".data", ".rdata", ".rsrc"]
-                
-                for section_name in sections_to_pad:
-                    # Add small amount of junk data
-                    junk_size = min(1024, 1024)  # 1KB max
-                    writer.add_junk_data(section_name, junk_size)
-                
-                result = writer.get_modified_data()
-            
-            logger.info("action=section_padding_applied")
-            return result
-            
-        except Exception as e:
-            logger.error("action=section_padding_failed error=%s", e)
-            return pe_data
     
-    def _apply_entropy_increase(self, pe_data: bytes) -> bytes:
-        """Increase entropy by adding random data to unused sections."""
-        try:
-            with PEWriter(pe_data) as writer:
-                # Add entropy to .data section
-                entropy_data = secrets.token_bytes(512)  # 512 bytes of random data
-                writer.inject_payload_to_section(".data", entropy_data, offset=0)
-                
-                result = writer.get_modified_data()
-            
-            logger.info("action=entropy_increase_applied")
-            return result
-            
-        except Exception as e:
-            logger.error("action=entropy_increase_failed error=%s", e)
-            return pe_data
     
-    def _apply_compression(self, pe_data: bytes) -> bytes:
-        """Apply compression to reduce file size while maintaining PE structure.
+    
+    def _apply_import_manipulation(self, pe_data: bytes) -> bytes:
+        """Apply import table manipulation and dead code injection.
         
         Args:
-            pe_data: PE file bytes to compress
+            pe_data: PE file bytes to manipulate
             
         Returns:
-            Compressed PE file bytes
+            Manipulated PE file bytes
         """
         try:
-            # Only compress if the file is large enough to benefit from compression
-            if len(pe_data) < 1024:  # Don't compress small files
-                logger.info("action=compression_skipped reason=file_too_small size=%d", len(pe_data))
+            # Create import manipulation plan
+            plan = self.import_manipulator.create_import_manipulation_plan(pe_data)
+            
+            if not plan["fake_imports"] and not plan["dead_code"]:
+                logger.info("action=import_manipulation_skipped reason=no_manipulation_needed")
                 return pe_data
             
-            # Compress the entire PE file
-            compressed_data = self._compress_data(pe_data)
-            
-            # Check if compression actually reduced size
-            if len(compressed_data) >= len(pe_data):
-                logger.info("action=compression_skipped reason=no_size_reduction original=%d compressed=%d", 
-                           len(pe_data), len(compressed_data))
-                return pe_data
-            
-            # Create a new PE with compressed data in a special section
+            # Apply manipulations using PEWriter
             with PEWriter(pe_data) as writer:
-                # Add a section to store the compressed data
-                compression_section_name = ".compressed"
-                writer.add_section(compression_section_name, compressed_data, 
-                                 characteristics=0x40000000)  # IMAGE_SCN_CNT_INITIALIZED_DATA
+                # Inject dead code into .text section
+                if plan["dead_code"]:
+                    dead_code_text = "\n".join(plan["dead_code"])
+                    dead_code_bytes = dead_code_text.encode('utf-8')
+                    
+                    # Add dead code as a comment or unused section
+                    writer.inject_payload_to_section(".text", dead_code_bytes, offset=0)
                 
-                # Add a small decompression stub (simplified)
-                decompression_stub = self._create_decompression_stub()
-                writer.inject_payload_to_section(".text", decompression_stub, offset=0)
+                # Add fake imports metadata (simplified - full implementation would modify IAT)
+                if plan["fake_imports"]:
+                    import_metadata = self._create_import_metadata(plan["fake_imports"])
+                    writer.add_section(".fake_imports", import_metadata,
+                                     characteristics=0x40000000)  # IMAGE_SCN_CNT_INITIALIZED_DATA
                 
                 result = writer.get_modified_data()
             
-            compression_ratio = (len(compressed_data) / len(pe_data)) * 100
-            logger.info("action=compression_applied algorithm=%s original_size=%d compressed_size=%d ratio=%.1f%%", 
-                       self.config.compression_algorithm, len(pe_data), len(compressed_data), compression_ratio)
+            logger.info("action=import_manipulation_applied fake_imports=%d dead_functions=%d",
+                       len(plan["fake_imports"]), len(plan["dead_code"]))
             
             return result
             
         except Exception as e:
-            logger.error("action=compression_failed error=%s", e)
+            logger.error("action=import_manipulation_failed error=%s", e)
             return pe_data
     
-    def _compress_data(self, data: bytes) -> bytes:
-        """Compress data using the configured algorithm.
+    def _create_import_metadata(self, fake_imports: List[Any]) -> bytes:
+        """Create metadata about fake imports.
         
         Args:
-            data: Data to compress
+            fake_imports: List of fake import entries
             
         Returns:
-            Compressed data
+            Metadata bytes
         """
-        algorithm = self.config.compression_algorithm.lower()
-        level = self.config.compression_level
+        metadata = {
+            "fake_imports": [
+                {"dll": imp.dll_name, "function": imp.function_name, "used": imp.is_used}
+                for imp in fake_imports
+            ],
+            "total_count": len(fake_imports),
+            "dll_diversity": len(set(imp.dll_name for imp in fake_imports))
+        }
         
-        if algorithm == "zlib":
-            return zlib.compress(data, level)
-        elif algorithm == "gzip":
-            return gzip.compress(data, compresslevel=level)
-        elif algorithm == "bz2":
-            return bz2.compress(data, compresslevel=level)
-        else:
-            logger.warning("action=unknown_compression_algorithm algorithm=%s using_zlib", algorithm)
-            return zlib.compress(data, level)
+        return str(metadata).encode('utf-8')
     
-    def _create_decompression_stub(self) -> bytes:
-        """Create a simple decompression stub for runtime decompression.
+    def _apply_static_evasion(self, pe_data: bytes) -> bytes:
+        """Apply static analysis evasion techniques.
         
+        Args:
+            pe_data: PE file bytes to evade
+            
         Returns:
-            Decompression stub bytes
+            Evaded PE file bytes
         """
-        # This is a simplified stub - in a real implementation, this would be
-        # a proper PE-compatible decompression routine
-        stub_code = b"""
-        // Simplified decompression stub
-        // In a real implementation, this would be proper assembly code
-        // that decompresses the .compressed section at runtime
+        try:
+            # Apply metadata cleaning
+            if self.static_evasion.config.enable_metadata_cleaning:
+                pe_data = self.static_evasion.clean_metadata(pe_data)
+            
+            # Remove tool signatures
+            if self.static_evasion.config.enable_tool_signature_removal:
+                pe_data = self.static_evasion.remove_tool_signatures(pe_data)
+            
+            # Remove suspicious strings
+            if self.static_evasion.config.enable_suspicious_string_removal:
+                pe_data = self.static_evasion.remove_suspicious_strings(pe_data)
+            
+            logger.info("action=static_evasion_applied")
+            return pe_data
+            
+        except Exception as e:
+            logger.error("action=static_evasion_failed error=%s", e)
+            return pe_data
+    
+    def _apply_detection_mitigation(self, pe_data: bytes) -> bytes:
+        """Apply detection vector mitigation techniques.
+        
+        Args:
+            pe_data: PE file bytes to mitigate
+            
+        Returns:
+            Mitigated PE file bytes
         """
-        return stub_code
+        try:
+            # Monitor file size
+            if self.detection_mitigation.config.enable_file_size_monitoring:
+                size_analysis = self.detection_mitigation.monitor_file_size(pe_data)
+                if not size_analysis["within_limits"]:
+                    logger.warning("action=file_size_exceeded size=%d max=%d",
+                                 size_analysis["current_size"], size_analysis["max_size"])
+            
+            # Preserve timestamps
+            if self.detection_mitigation.config.enable_timestamp_preservation:
+                pe_data = self.detection_mitigation.preserve_timestamps(pe_data)
+            
+            # Optimize section names
+            if self.detection_mitigation.config.enable_section_name_optimization:
+                pe_data = self.detection_mitigation.optimize_section_names(pe_data)
+            
+            logger.info("action=detection_mitigation_applied")
+            return pe_data
+            
+        except Exception as e:
+            logger.error("action=detection_mitigation_failed error=%s", e)
+            return pe_data
     
     def create_obfuscation_plan(self, pe_data: bytes) -> TransformPlan:
         """Create a transform plan for PE obfuscation.
@@ -356,14 +341,40 @@ class PEObfuscator:
         report = {
             "size_change": len(obfuscated_data) - len(original_data),
             "size_percentage": (len(obfuscated_data) / len(original_data)) * 100,
-            "compression_ratio": 0.0,
             "entropy_changes": {},
             "validation_results": {}
         }
         
-        # Calculate compression ratio if compression was applied
-        if self.config.enable_compression and len(obfuscated_data) < len(original_data):
-            report["compression_ratio"] = (len(obfuscated_data) / len(original_data)) * 100
+        # Get reports from specialized modules
+        if self.config.enable_compression:
+            compression_report = self.compressor.get_compression_report(original_data, obfuscated_data)
+            report["compression"] = compression_report
+        
+        if self.config.enable_code_encryption:
+            encryption_report = self.encryptor.get_encryption_report(original_data, obfuscated_data)
+            report["encryption"] = encryption_report
+        
+        if self.config.enable_string_obfuscation:
+            string_report = self.string_obfuscator.get_string_obfuscation_report(original_data, obfuscated_data)
+            report["string_obfuscation"] = string_report
+        
+        if self.config.enable_section_padding or self.config.enable_entropy_increase:
+            section_report = self.section_manipulator.get_section_manipulation_report(original_data, obfuscated_data)
+            report["section_manipulation"] = section_report
+        
+        # Check if various techniques were applied
+        report["techniques_applied"] = {
+            "mimicry": self.config.enable_mimicry,
+            "string_obfuscation": self.config.enable_string_obfuscation,
+            "import_inflation": self.config.enable_import_inflation,
+            "section_padding": self.config.enable_section_padding,
+            "entropy_increase": self.config.enable_entropy_increase,
+            "compression": self.config.enable_compression,
+            "code_encryption": self.config.enable_code_encryption,
+            "import_manipulation": self.config.enable_import_manipulation,
+            "static_evasion": self.config.enable_static_evasion,
+            "detection_mitigation": self.config.enable_detection_mitigation
+        }
         
         # Compare entropy
         try:

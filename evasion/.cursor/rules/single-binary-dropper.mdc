@@ -59,3 +59,4 @@ Goal: Produce ONE executable that contains the obfuscated payload and a runtime 
 
 # CONSTRAINTS
 - Max file size we can create is 5 MB
+- Must be a SINGLE executable PE in the end
