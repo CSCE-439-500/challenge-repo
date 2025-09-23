@@ -41,3 +41,8 @@ Makefile
   - `OUTPUT` (default `out/out.bin`)
   - `DECODE_KEY` (required for XOR paths; default `secret`)
   - `LOG_LEVEL` (default `INFO`)
+
+Testing
+- Dev deps: `pip install -r requirements-dev.txt`
+- Run tests: `make test` (sets `REDTEAM_MODE=true`, `PYTHONPATH=src`) or `pytest -vv -s`
+- The test suite builds a tiny C++ `hello-world` and verifies stdout parity after Base64+XOR obfuscation and in-memory decode.

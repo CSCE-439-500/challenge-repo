@@ -11,7 +11,7 @@ OUTPUT ?= $(OUT_DIR)/out.bin
 DECODE_KEY ?= secret
 LOG_LEVEL ?= INFO
 
-.PHONY: help init run run-b64 run-xor dry-run clean
+.PHONY: help init run run-b64 run-xor dry-run clean test
 
 help:
 	@echo "Targets:"
@@ -53,4 +53,10 @@ dry-run:
 
 clean:
 	@rm -rf $(OUT_DIR)
+
+test:
+	REDTEAM_MODE=true \
+	LOG_LEVEL=$(LOG_LEVEL) \
+	PYTHONPATH=src \
+	$(PYTHON) -m pytest
 
