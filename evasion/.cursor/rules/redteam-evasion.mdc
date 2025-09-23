@@ -65,3 +65,9 @@ description: Red-team playbook summary of MLSEC 2020 evasion with XOR/Base64, dr
 
 - **One‑liner**
   - Stage with a benign‑looking dropper, hide semantics with XOR/Base64, and inflate benign static features; keep decoding in memory to reliably defeat static detectors while feeding data back to harden defenses.
+
+---
+
+# Very Important Note
+NOTE THE GOAL IS TO TAKE AN INPUT BINARY AND MODIFY THIS BINARY TO EVADE. MEANING WE DON'T GET THE SOURCE CODE. 
+SO WHATEVER WE DO MUST SOLELY MODIFY THE BINARY AND MAINTAIN THE ORIGINAL FUNCTIONALITY.

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rt-evade"
+version = "0.0.1"
+description = "Red-team static ML evasion toolkit (lab only)"
+requires-python = ">=3.10"
+authors = [{name = "lab"}]
+dependencies = []
+
+[project.scripts]
+rt-evade = "__main__:main"
+
+
