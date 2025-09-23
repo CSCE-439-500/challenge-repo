@@ -187,7 +187,7 @@ class PEObfuscator:
 
                 return writer.get_modified_data()
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=mimicry_failed error=%s", e)
             return pe_data
 
@@ -246,7 +246,7 @@ class PEObfuscator:
 
             return result
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=import_manipulation_failed error=%s", e)
             return pe_data
 
@@ -299,7 +299,7 @@ class PEObfuscator:
             logger.info("action=static_evasion_applied")
             return pe_data
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=static_evasion_failed error=%s", e)
             return pe_data
 
@@ -334,7 +334,7 @@ class PEObfuscator:
             logger.info("action=detection_mitigation_applied")
             return pe_data
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=detection_mitigation_failed error=%s", e)
             return pe_data
 
@@ -443,7 +443,7 @@ class PEObfuscator:
                         "change": obf_entropy[section_name] - orig_value,
                     }
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=entropy_comparison_failed error=%s", e)
 
     def _add_validation_results(

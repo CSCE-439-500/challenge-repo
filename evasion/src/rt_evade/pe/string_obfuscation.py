@@ -10,6 +10,11 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
 from ..core.guards import require_redteam_mode
+from ..core.constants import (
+    MALWARE_STRINGS,
+    SUSPICIOUS_API_FUNCTIONS,
+    SUSPICIOUS_EXECUTABLES,
+)
 from .reader import PEReader
 from .writer import PEWriter
 
@@ -87,7 +92,7 @@ class PEStringObfuscator:
             )
             return result
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=string_obfuscation_failed error=%s", e)
             return pe_data
 
@@ -97,54 +102,7 @@ class PEStringObfuscator:
         Returns:
             List of suspicious string patterns
         """
-        return [
-            "malware",
-            "virus",
-            "trojan",
-            "backdoor",
-            "payload",
-            "inject",
-            "exploit",
-            "shellcode",
-            "keylogger",
-            "rootkit",
-            "botnet",
-            "createprocess",
-            "virtualalloc",
-            "writeprocessmemory",
-            "readprocessmemory",
-            "openprocess",
-            "terminateprocess",
-            "loadlibrary",
-            "getprocaddress",
-            "setwindowshookex",
-            "registerhotkey",
-            "createremotethread",
-            "cmd.exe",
-            "powershell.exe",
-            "wscript.exe",
-            "cscript.exe",
-            "rundll32.exe",
-            "regsvr32.exe",
-            "mshta.exe",
-            "certutil.exe",
-            "net.exe",
-            "netstat.exe",
-            "tasklist.exe",
-            "systeminfo.exe",
-            "whoami.exe",
-            "ipconfig.exe",
-            "ping.exe",
-            "tracert.exe",
-            "nslookup.exe",
-            "arp.exe",
-            "route.exe",
-            "telnet.exe",
-            "ftp.exe",
-            "tftp.exe",
-            "nc.exe",
-            "netcat.exe",
-        ]
+        return MALWARE_STRINGS + SUSPICIOUS_API_FUNCTIONS + SUSPICIOUS_EXECUTABLES
 
     def _identify_suspicious_strings(self, strings: List[str]) -> List[str]:
         """Identify suspicious strings that should be obfuscated.
@@ -158,7 +116,9 @@ class PEStringObfuscator:
         suspicious_strings = []
         for string in strings:
             string_lower = string.lower()
-            if any(pattern in string_lower for pattern in self.suspicious_patterns):
+            if any(
+                pattern.lower() == string_lower for pattern in self.suspicious_patterns
+            ):
                 suspicious_strings.append(string)
 
         return suspicious_strings

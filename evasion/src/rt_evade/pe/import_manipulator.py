@@ -409,7 +409,7 @@ class PEImportManipulator:
             logger.info("action=imports_analyzed count=%d", len(import_entries))
             return import_entries
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=import_analysis_failed error=%s", e)
             return []
 

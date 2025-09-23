@@ -77,7 +77,7 @@ class PEMimicryEngine:
 
             logger.info("action=templates_loaded count=%d", len(self.templates))
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, json.JSONDecodeError) as e:
             logger.error("action=template_load_failed error=%s", e)
             self._create_default_templates()
 
@@ -527,7 +527,7 @@ class PEMimicryEngine:
                 len(self.templates),
             )
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, TypeError) as e:
             logger.error("action=template_save_failed error=%s", e)
 
     def add_template_from_pe(self, pe_data: bytes, name: str, category: str) -> bool:
@@ -573,6 +573,6 @@ class PEMimicryEngine:
             logger.info("action=template_added name=%s category=%s", name, category)
             return True
 
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             logger.error("action=template_add_failed name=%s error=%s", name, e)
             return False

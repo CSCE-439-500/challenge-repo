@@ -119,7 +119,7 @@ class PEEncryptor:
 
             return result
 
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, OSError) as e:
             logger.error("action=code_encryption_failed error=%s", e)
             return pe_data
 

@@ -10,6 +10,7 @@ import pefile
 from pefile import PE
 
 from ..core.guards import require_redteam_mode
+from ..core.constants import SUSPICIOUS_API_FUNCTIONS, SUSPICIOUS_DLLS
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class PEValidator:
         except pefile.PEFormatError as e:
             self.validation_results["valid"] = False
             self.validation_results["errors"].append(f"PE format error: {e}")
-        except Exception as e:
+        except (OSError, IOError, ValueError, AttributeError) as e:
             self.validation_results["valid"] = False
             self.validation_results["errors"].append(f"Unexpected error: {e}")
 
@@ -215,20 +216,8 @@ class PEValidator:
                     import_functions.add(f"{dll_name}.{function_name}")
 
         # Check for suspicious imports
-        suspicious_dlls = ["kernel32.dll", "ntdll.dll", "advapi32.dll"]
-        suspicious_functions = [
-            "CreateProcess",
-            "CreateRemoteThread",
-            "VirtualAlloc",
-            "WriteProcessMemory",
-            "ReadProcessMemory",
-            "OpenProcess",
-            "TerminateProcess",
-            "LoadLibrary",
-            "GetProcAddress",
-            "SetWindowsHookEx",
-            "RegisterHotKey",
-        ]
+        suspicious_dlls = SUSPICIOUS_DLLS
+        suspicious_functions = SUSPICIOUS_API_FUNCTIONS
 
         for dll in import_dlls:
             if dll in suspicious_dlls:
@@ -324,7 +313,13 @@ class PEValidator:
             pe.close()
             return True
 
-        except Exception as e:
+        except (
+            OSError,
+            IOError,
+            ValueError,
+            AttributeError,
+            pefile.PEFormatError,
+        ) as e:
             logger.error("action=execution_validation_failed error=%s", e)
             return False
 
