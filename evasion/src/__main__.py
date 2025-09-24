@@ -16,6 +16,7 @@ from .rt_evade.core.transform import TransformPlan
 from .rt_evade.dropper.embed import generate_embedded_payload_module
 from .rt_evade.dropper.cli import main as dropper_main
 from .rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
+from .rt_evade.pe.packer import PackerConfig
 
 
 def _setup_logging() -> None:
@@ -70,6 +71,7 @@ def build_default_plan(args: argparse.Namespace) -> List[TransformPlan]:
             enable_compression=args.pe_compression,
             enable_code_encryption=args.pe_encryption,
             target_category=args.pe_category,
+            packer_config=PackerConfig(enable_packer=args.pe_packer),
         )
         obfuscator = PEObfuscator(config)
         plans.append(
@@ -125,6 +127,12 @@ def _setup_transform_parser(subparsers) -> argparse.ArgumentParser:
         action="store_true",
         default=True,
         help="Enable PE compression (default: True)",
+    )
+    parser.add_argument(
+        "--pe-packer",
+        action="store_true",
+        default=False,
+        help="Enable external packer step (UPX) before compression (default: False)",
     )
     parser.add_argument(
         "--pe-encryption",

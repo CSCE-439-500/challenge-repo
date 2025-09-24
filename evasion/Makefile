@@ -73,18 +73,21 @@ run: init
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUTPUT)
 
 run-pe: init
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUTPUT)
 
 dry-run:
 	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
-	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption
+	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true )
 
 # Specialized module testing
 test-modules: test-compression test-encryption test-strings test-sections
@@ -114,6 +117,7 @@ embed: init
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
 	$(PYTHON) -m $(SRC_MODULE) embed $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUT_DIR)/embedded_payload.py
 
 bundle: embed

@@ -16,6 +16,7 @@ The toolkit has been refactored into specialized, focused modules for better mai
 - **`writer.py`**: PE file modification while preserving structure
 - **`validator.py`**: PE format validation and integrity checking
 - **`mimicry.py`**: Benign software template matching and characteristic copying
+- **`packer.py`**: External packer integration (UPX), guarded and cleanup-safe
 - **`obfuscator.py`**: Main orchestration engine (refactored)
 
 ### Specialized Obfuscation Modules
@@ -71,13 +72,12 @@ INPUT PE FILE
 ┌───────────────────────────────────────────────────────────────────────────────┐
 │                        ENHANCEMENT MODULES                                    │
 ├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
-│   Compression   │   Encryption    │   Static        │   Detection             │
-│                 │                 │   Evasion       │   Mitigation            │
+│   Packer        │   Compression   │   Encryption    │   Static                │
+│                 │                 │                 │   Evasion               │
 │                 │                 │                 │                         │
-│ • zlib/gzip/bz2 │ • XOR encoding  │ • Clean         │ • Monitor file size     │
-│ • Configurable  │ • Substitution  │   metadata      │ • Optimize sections     │
-│   levels        │ • Environment   │ • Remove tool   │ • Generate benign       │
-│ • Auto stubs    │   key support   │   signatures    │   timestamps            │
+│ • UPX (guarded) │ • zlib/gzip/bz2 │ • XOR encoding  │ • Clean metadata        │
+│ • Env args      │ • Configurable  │ • Substitution  │ • Remove tool sigs      │
+│ • Temp cleanup  │   levels        │ • Env key sup.  │                         │
 └─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
        │
        ▼
@@ -126,14 +126,15 @@ OUTPUT PE FILE (Obfuscated)
 - Injects payloads into existing sections
 - Modifies section characteristics to appear benign
 
-### Compression / Packing
-- Multiple algorithms: zlib, gzip, bz2 (in-memory)
-- External packer: UPX integration (guarded subprocess)
-  - Enabled via `USE_UPX=1` or Make `UPX=1` (default on in Make targets)
-  - Optional args via `UPX_ARGS` (e.g., `"--best --lzma"`)
-  - Gated by `REDTEAM_MODE` and `ALLOW_ACTIONS`; uses temp files and cleans up
-- Configurable compression levels (for in-memory algorithms)
-- Automatic decompression stubs for internal compression path
+### Packing and Compression
+- External packer step (separate from compression):
+  - `packer.py` runs UPX under guardrails
+  - Enable via obfuscation config `packer_config.enable_packer=True`
+  - Optional args via env `UPX_ARGS` or config `packer_args`
+  - Requires `REDTEAM_MODE=true` and `ALLOW_ACTIONS=true`; uses temp files and cleans up
+- In-memory compression step:
+  - Algorithms: zlib, gzip, bz2; configurable levels
+  - Automatic decompression stub injection
 
 ### Encryption
 - Code section encryption (XOR, simple substitution)
