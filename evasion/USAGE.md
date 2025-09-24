@@ -1,0 +1,271 @@
+# Usage Guide
+
+**Complete guide for using the rt_evade PE Evasion Toolkit**
+
+- Set `REDTEAM_MODE=true` to enable.
+- File writes require `ALLOW_ACTIONS=true`.
+- **Modular architecture** with specialized obfuscation components.
+
+## 🚀 Quick Start
+
+### Local Installation
+
+```bash
+# Show all available targets
+make help
+
+# Basic PE obfuscation (mimicry + strings + imports)
+make run INPUT=path/to/payload.exe
+
+# Full PE obfuscation (all modules enabled)
+make run-pe INPUT=path/to/payload.exe OUTPUT=out/obfuscated.exe
+
+# One-shot: embed + bundle to standalone dropper
+make single INPUT=path/to/payload.exe DECODE_KEY=mykey
+
+# Batch obfuscation: process all binaries in a folder
+make batch-obfuscate INPUT_DIR=samples/ OUTPUT_DIR=out/
+make batch-dry-run INPUT_DIR=samples/  # Preview what would be processed
+
+# Test individual modules
+make test-compression
+make test-encryption
+make test-strings
+make test-sections
+```
+
+### Docker Usage
+
+#### Using Makefile (Recommended)
+
+```bash
+# Build the Docker image
+make docker-build
+
+# Process a single file
+make docker-run INPUT=path/to/payload.exe
+
+# Process a directory of files (batch obfuscation)
+make docker-run INPUT=samples/
+
+# With custom output directory
+make docker-run INPUT=samples/ OUTPUT_DIR=custom_output/
+
+# With verbose logging
+make docker-run INPUT=payload.exe LOG_LEVEL=DEBUG
+
+# Clean up Docker images
+make docker-clean
+```
+
+#### Direct Docker Commands
+
+```bash
+# Build the Docker image
+docker build -t pe-evasion .
+
+# Process a single file
+docker run -v /path/to/input:/input -v /path/to/output:/output pe-evasion --input /input/payload.exe
+
+# Process a directory of files
+docker run -v /path/to/samples:/input -v /path/to/output:/output pe-evasion --input /input
+
+# Custom output directory
+docker run -v /path/to/samples:/input -v /path/to/output:/output pe-evasion --input /input --output-dir /output/obfuscated
+
+# Show help
+docker run pe-evasion --help
+```
+
+## 📋 Available Makefile Targets
+
+### Main Obfuscation Targets
+- `make run` - Basic PE obfuscation (mimicry + strings + imports)
+- `make run-pe` - Full PE obfuscation (all modules enabled)
+- `make dry-run` - Show obfuscation plan without file writes
+- `make single` - One-shot: embed + bundle to standalone dropper
+- `make batch-obfuscate` - Obfuscate all binaries in a folder
+- `make batch-dry-run` - Show what would be obfuscated without doing it
+
+### Specialized Module Testing
+- `make test-modules` - Test all specialized modules
+- `make test-compression` - Test compression module only
+- `make test-encryption` - Test encryption module only
+- `make test-strings` - Test string obfuscation module only
+- `make test-sections` - Test section manipulation module only
+
+### Utility Targets
+- `make test` - Run all tests (134 tests)
+- `make dropper` - Execute obfuscated PE via dropper
+- `make embed` - Embed PE into Python module
+- `make bundle` - Create standalone executable
+- `make clean` - Remove all build artifacts
+
+### Docker Targets
+- `make docker-build` - Build Docker image for PE evasion toolkit
+- `make docker-run` - Run PE obfuscation in Docker container
+- `make docker-clean` - Remove Docker images and containers
+
+## 🔧 Configuration
+
+### Environment Variables
+- `REDTEAM_MODE=true` - Required to enable toolkit
+- `ALLOW_ACTIONS=true` - Required for file writes
+- `DECODE_KEY=secret` - Encryption key for runtime decoding
+- `LOG_LEVEL=INFO` - Logging verbosity
+
+### Makefile Variables
+- `INPUT` - Path to input PE file (default: `samples/sample.bin`)
+- `INPUT_DIR` - Directory containing binaries to obfuscate (default: `samples`)
+- `OUTPUT` - Output path (default: `out/out.bin`)
+- `OUTPUT_DIR` - Output directory for batch obfuscation (default: `out`)
+- `DECODE_KEY` - Encryption key (default: `secret`)
+- `LOG_LEVEL` - Log level (default: `INFO`)
+
+## 🧪 Testing
+
+The refactored codebase includes comprehensive test coverage:
+
+```bash
+# Run all tests (134 tests)
+make test
+
+# Test individual modules
+make test-modules          # All specialized modules
+make test-compression      # Compression module only
+make test-encryption       # Encryption module only
+make test-strings          # String obfuscation only
+make test-sections         # Section manipulation only
+
+# Test with verbose output
+make test LOG_LEVEL=DEBUG
+```
+
+**Test Coverage:**
+- ✅ **134 tests passing**
+- ✅ **Modular test structure** with focused test files
+- ✅ **Integration tests** for end-to-end workflows
+- ✅ **Unit tests** for each specialized module
+- ✅ **Configuration validation** for all modules
+
+## 🎯 Single-Binary Workflow
+
+```bash
+# One-shot build (no env needed at runtime)
+make single INPUT=path/to/payload.exe
+
+# Execute single binary (no env vars required)
+./out/dropper
+```
+
+## 📦 Batch Obfuscation Workflow
+
+```bash
+# Obfuscate all binaries in a folder
+make batch-obfuscate INPUT_DIR=samples/ OUTPUT_DIR=out/
+
+# Preview what would be processed (dry run)
+make batch-dry-run INPUT_DIR=samples/
+
+# Custom output directory
+make batch-obfuscate INPUT_DIR=my_binaries/ OUTPUT_DIR=obfuscated_binaries/
+
+# Process with verbose logging
+make batch-obfuscate INPUT_DIR=samples/ LOG_LEVEL=DEBUG
+```
+
+**Batch Processing Features:**
+- Automatically detects binary files by extension and content
+- Preserves original filenames in output directory
+- Applies full PE obfuscation to each file
+- Continues processing even if individual files fail
+- Provides detailed logging of success/failure counts
+
+The output PE files are obfuscated at rest and will not run directly; execute them via the dropper which decodes in-memory to a temporary executable.
+
+## 🐳 Docker Deployment
+
+The toolkit is containerized for easy deployment and consistent execution across different environments. Use the Makefile for simplified Docker operations.
+
+### Quick Start with Makefile
+
+```bash
+# Build and run in one command
+make docker-run INPUT=path/to/payload.exe
+
+# Batch process a directory
+make docker-run INPUT=samples/
+
+# With custom output directory
+make docker-run INPUT=samples/ OUTPUT_DIR=custom_output/
+
+# With verbose logging
+make docker-run INPUT=payload.exe LOG_LEVEL=DEBUG
+```
+
+### Docker Workflows
+
+#### Single File Processing
+
+```bash
+# Using Makefile (recommended)
+make docker-run INPUT=path/to/payload.exe
+
+# Direct Docker command
+docker run -v /host/input:/input -v /host/output:/output pe-evasion --input /input/payload.exe
+```
+
+#### Batch Directory Processing
+
+```bash
+# Using Makefile (recommended)
+make docker-run INPUT=samples/
+
+# Direct Docker command
+docker run -v /host/samples:/input -v /host/output:/output pe-evasion --input /input
+```
+
+#### Advanced Usage
+
+```bash
+# Interactive mode (for debugging)
+docker run -it -v /host/input:/input -v /host/output:/output pe-evasion bash
+
+# Run with custom environment variables
+docker run -e LOG_LEVEL=DEBUG -v /host/input:/input -v /host/output:/output pe-evasion --input /input
+
+# Mount multiple directories
+docker run -v /host/samples:/input -v /host/output:/output -v /host/config:/config pe-evasion --input /input
+```
+
+### Docker Features
+
+- **Ubuntu 22.04 Base**: Stable, secure foundation
+- **Automatic Detection**: Intelligently processes files or directories
+- **Volume Mounting**: Easy input/output file management
+- **Environment Variables**: Configurable logging and behavior
+- **Help System**: Built-in usage instructions
+- **Error Handling**: Graceful failure with informative messages
+- **Batch Processing**: Full support for directory-based batch obfuscation
+
+### Volume Mounting
+
+The container uses volume mounts to access host files:
+
+- **Input Volume**: Mount your input files/directories to `/input`
+- **Output Volume**: Mount your desired output directory to `/output`
+- **Internal Paths**: Use `/input` and `/output` paths inside the container
+
+### Environment Variables
+
+- `REDTEAM_MODE=true` (pre-set in container)
+- `ALLOW_ACTIONS=true` (pre-set in container)
+- `LOG_LEVEL` - Override logging level (DEBUG, INFO, WARNING, ERROR)
+
+## 🔒 Safety & Compliance
+
+- **ROE Compliance**: All operations require explicit environment variables
+- **In-Memory Processing**: Decoding occurs in memory, not on disk
+- **Audit Trail**: Comprehensive logging of all transformations
+- **Fail-Safe**: Operations fail closed when safety checks fail
+- **Research Tool**: Authorized lab use only

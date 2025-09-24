@@ -104,6 +104,9 @@ mkdir -p "$OUTPUT_DIR"
 # Set log level environment variable
 export LOG_LEVEL="$LOG_LEVEL"
 
+# Add current directory to Python path for module imports
+export PYTHONPATH="/app:$PYTHONPATH"
+
 # Determine if input is a file or directory
 if [ -f "$INPUT_PATH" ]; then
     echo "Processing single file: $INPUT_PATH"
