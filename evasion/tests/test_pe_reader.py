@@ -140,6 +140,35 @@ class TestPEReader:
                 entropy = reader.get_entropy_analysis()
                 assert isinstance(entropy, dict)
 
+    def test_calculate_entropy_fixed_bit_length_error(self):
+        """Test that calculate_entropy no longer has bit_length error with float probabilities."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):
+            # Test with simple data that will trigger the entropy calculation
+            test_data = b"Hello, World! This is a test string for entropy calculation."
+
+            # Create a minimal PE structure just for testing entropy
+            pe_data = bytearray(1024)
+            pe_data[0:2] = b"MZ"
+            pe_data[60:64] = (64).to_bytes(4, "little")
+            pe_data[64:68] = b"PE\x00\x00"
+            pe_data[68:70] = (0x014C).to_bytes(2, "little")
+            pe_data[70:72] = (1).to_bytes(2, "little")
+            pe_data[84:86] = (224).to_bytes(2, "little")
+            pe_data[86:88] = (0x010F).to_bytes(2, "little")
+            pe_data[88:90] = (0x010B).to_bytes(2, "little")
+            pe_data[312:320] = b".text\x00\x00\x00"
+            pe_data[348:352] = (0x60000020).to_bytes(4, "little")
+
+            # Add our test data to the PE
+            pe_data[400 : 400 + len(test_data)] = test_data
+
+            with PEReader(bytes(pe_data)) as reader:
+                # This should not raise the 'float' object has no attribute 'bit_length' error
+                entropy = reader._calculate_entropy(test_data)
+                assert isinstance(entropy, float)
+                assert entropy >= 0.0
+                assert entropy <= 8.0  # Maximum entropy for bytes is log2(256) = 8
+
     def test_context_manager(self, mock_pe_data):
         """Test PE reader as context manager."""
         with patch.dict(os.environ, {"REDTEAM_MODE": "true"}):

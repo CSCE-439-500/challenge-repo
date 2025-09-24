@@ -5,6 +5,7 @@ ROE guardrails. It focuses on in-memory analysis without side effects.
 """
 
 import logging
+import math
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Any
 import pefile
@@ -262,7 +263,8 @@ class PEReader:
         for count in byte_counts:
             if count > 0:
                 probability = count / data_len
-                entropy -= probability * (probability.bit_length() - 1)
+                # Use log2 for entropy calculation instead of bit_length
+                entropy -= probability * math.log2(probability)
 
         return entropy
 

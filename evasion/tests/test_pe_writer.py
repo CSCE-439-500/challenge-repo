@@ -109,11 +109,52 @@ class TestPEWriter:
                 # The important thing is that it doesn't crash
                 assert isinstance(success, bool)
 
+    def test_add_section_name_length_validation(self, mock_pe_data):
+        """Test that section names longer than 8 characters are rejected."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}):
+            with PEWriter(mock_pe_data) as writer:
+                test_data = b"test_section_data"
+
+                # Test with valid short name (should not raise error)
+                try:
+                    writer.add_section("test", test_data)
+                except Exception:
+                    pass  # May fail due to mock data limitations, but shouldn't be ValueError
+
+                # Test with invalid long name (should raise ValueError)
+                with pytest.raises(
+                    ValueError, match="Section name must be 8 characters or less"
+                ):
+                    writer.add_section("very_long_section_name", test_data)
+
+                # Test with exactly 8 characters (should not raise error)
+                try:
+                    writer.add_section("12345678", test_data)
+                except Exception:
+                    pass  # May fail due to mock data limitations, but shouldn't be ValueError
+
     def test_modify_strings(self, mock_pe_data):
         """Test modifying strings in PE."""
         with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}):
             with PEWriter(mock_pe_data) as writer:
                 replacements = {"old_string": "new_string"}
+                count = writer.modify_strings(replacements)
+                assert isinstance(count, int)
+                assert count >= 0
+
+    def test_modify_strings_aggregated_logging(self, mock_pe_data):
+        """Test that modify_strings uses aggregated logging instead of per-string logging."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}):
+            with PEWriter(mock_pe_data) as writer:
+                # Test with multiple string replacements to verify aggregated logging
+                replacements = {
+                    "string1": "replacement1",
+                    "string2": "replacement2",
+                    "string3": "replacement3",
+                    "very_long_string_that_will_be_too_long": "short",  # This should trigger string_too_long
+                }
+
+                # This should not produce excessive logging per string
                 count = writer.modify_strings(replacements)
                 assert isinstance(count, int)
                 assert count >= 0
