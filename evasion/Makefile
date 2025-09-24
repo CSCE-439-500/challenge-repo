@@ -24,7 +24,7 @@ ENV_UPX = USE_UPX=$(UPX)
 ENV_UPX_ARGS = UPX_ARGS=$(UPX_ARGS)
 ENV_RUST_CRYPTER = RUST_CRYPTER_PATH=$(PWD)/rust-crypter
 
-.PHONY: help init run run-pe run-crypt dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections test-rust-crypter batch-obfuscate batch-dry-run docker-build docker-run docker-clean
+.PHONY: help init run run-pe run-crypt dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections test-rust-crypter batch-obfuscate batch-crypt batch-dry-run docker-build docker-run docker-clean
 
 help:
 	@echo "=== PE Evasion Toolkit - Modular Components ==="
@@ -37,6 +37,7 @@ help:
 	@echo "  dry-run          - Show obfuscation plan without file writes"
 	@echo "  single           - One-shot: embed + bundle to standalone dropper"
 	@echo "  batch-obfuscate  - Obfuscate all binaries in a folder"
+	@echo "  batch-crypt      - Obfuscate + Rust-Crypter encrypt all binaries in a folder"
 	@echo "  batch-dry-run    - Show what would be obfuscated without doing it"
 	@echo ""
 	@echo "Specialized Module Targets:"
@@ -65,6 +66,7 @@ help:
 	@echo "  make run-crypt INPUT=payload.exe OUTPUT=out/encrypted.exe"
 	@echo "  make single INPUT=payload.exe DECODE_KEY=mykey"
 	@echo "  make batch-obfuscate INPUT_DIR=samples/"
+	@echo "  make batch-crypt INPUT_DIR=samples/"
 	@echo "  make test-compression"
 	@echo "  make test-rust-crypter"
 	@echo "  make docker-build"
@@ -151,6 +153,14 @@ batch-obfuscate: init
 	$(PYTHON) -m src.batch_obfuscate $(INPUT_DIR) \
 	--output-dir $(OUTPUT_DIR) \
 	--pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption
+
+# Batch Rust-Crypter encryption target
+batch-crypt: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_PYTHONPATH) $(ENV_RUST_CRYPTER) \
+	$(PYTHON) -m src.batch_obfuscate $(INPUT_DIR) \
+	--output-dir $(OUTPUT_DIR) \
+	--pe-mimicry --pe-strings --pe-imports --pe-padding --pe-encryption \
+	--pe-rust-crypter
 
 # Batch obfuscation dry run
 batch-dry-run:

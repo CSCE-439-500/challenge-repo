@@ -10,11 +10,12 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from .rt_evade.core.guards import require_redteam_mode, guard_can_write
 from .rt_evade.core.pipeline import TransformPipeline
 from .rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
+from .rt_evade.dropper.rust_crypter import RustCrypterIntegration, RustCrypterConfig
 
 
 def _setup_logging() -> None:
@@ -132,7 +133,8 @@ def find_binary_files(input_dir: Path) -> List[Path]:
 
 
 def obfuscate_file(
-    input_file: Path, output_file: Path, config: PEObfuscationConfig
+    input_file: Path, output_file: Path, config: PEObfuscationConfig, 
+    rust_crypter_config: Optional[RustCrypterConfig] = None
 ) -> bool:
     """Obfuscate a single file.
 
@@ -140,6 +142,7 @@ def obfuscate_file(
         input_file: Path to input file
         output_file: Path to output file
         config: Obfuscation configuration
+        rust_crypter_config: Optional Rust-Crypter configuration
 
     Returns:
         True if obfuscation was successful, False otherwise
@@ -148,24 +151,49 @@ def obfuscate_file(
         # Load the original file
         original = load_bytes_from_file(str(input_file))
 
-        # Create obfuscation pipeline
-        pipeline = TransformPipeline()
-        obfuscator = PEObfuscator(config)
-        pipeline.add(obfuscator.create_obfuscation_plan(original))
+        if rust_crypter_config:
+            # Rust-Crypter workflow: obfuscation first, then encryption
+            pipeline = TransformPipeline()
+            obfuscator = PEObfuscator(config)
+            pipeline.add(obfuscator.create_obfuscation_plan(original))
+            
+            # Apply obfuscation
+            obfuscated = pipeline.apply_all(original)
+            
+            # Then apply Rust-Crypter encryption
+            rust_crypter = RustCrypterIntegration(rust_crypter_config)
+            stub_path = rust_crypter.create_encrypted_payload(obfuscated, output_file)
+            
+            # Generate report
+            report = rust_crypter.get_encryption_report(original, obfuscated, stub_path)
+            
+            logging.info(
+                "action=rust_crypter_success input=%s output=%s original_size=%d encrypted_size=%d stub_size=%d",
+                input_file.name,
+                output_file.name,
+                report["original_size"],
+                report["encrypted_size"],
+                report["stub_size"],
+            )
+        else:
+            # Standard obfuscation workflow
+            pipeline = TransformPipeline()
+            obfuscator = PEObfuscator(config)
+            pipeline.add(obfuscator.create_obfuscation_plan(original))
 
-        # Apply obfuscation
-        obfuscated = pipeline.apply_all(original)
+            # Apply obfuscation
+            obfuscated = pipeline.apply_all(original)
 
-        # Write obfuscated file
-        write_bytes_to_file(str(output_file), obfuscated)
+            # Write obfuscated file
+            write_bytes_to_file(str(output_file), obfuscated)
 
-        logging.info(
-            "action=obfuscate_success input=%s output=%s original_size=%d obfuscated_size=%d",
-            input_file.name,
-            output_file.name,
-            len(original),
-            len(obfuscated),
-        )
+            logging.info(
+                "action=obfuscate_success input=%s output=%s original_size=%d obfuscated_size=%d",
+                input_file.name,
+                output_file.name,
+                len(original),
+                len(obfuscated),
+            )
         return True
 
     except Exception as e:
@@ -230,6 +258,33 @@ def main() -> int:
         help="Target software category for mimicry",
     )
     parser.add_argument(
+        "--pe-rust-crypter",
+        action="store_true",
+        default=False,
+        help="Enable Rust-Crypter encryption (disables packing and compression)",
+    )
+    parser.add_argument(
+        "--rust-crypter-path",
+        help="Path to Rust-Crypter directory (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--target-arch",
+        choices=["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"],
+        default="x86_64-pc-windows-gnu",
+        help="Rust target architecture (default: x86_64-pc-windows-gnu)"
+    )
+    parser.add_argument(
+        "--build-mode",
+        choices=["release", "debug"],
+        default="release",
+        help="Build mode for stub compilation (default: release)"
+    )
+    parser.add_argument(
+        "--no-anti-vm",
+        action="store_true",
+        help="Disable anti-VM features in stub"
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be obfuscated without actually doing it",
@@ -273,21 +328,40 @@ def main() -> int:
         return 0
 
     # Create obfuscation configuration
+    # When Rust-Crypter is enabled, disable packing and compression
+    if args.pe_rust_crypter:
+        enable_compression = False
+        enable_packer = False
+    else:
+        enable_compression = args.pe_compression
+        enable_packer = False  # Batch processing doesn't use packer by default
+        
     config = PEObfuscationConfig(
         enable_mimicry=args.pe_mimicry,
         enable_string_obfuscation=args.pe_strings,
         enable_import_inflation=args.pe_imports,
         enable_section_padding=args.pe_padding,
-        enable_compression=args.pe_compression,
+        enable_compression=enable_compression,
         enable_code_encryption=args.pe_encryption,
         target_category=args.pe_category,
     )
+
+    # Create Rust-Crypter configuration if enabled
+    rust_crypter_config = None
+    if args.pe_rust_crypter:
+        rust_crypter_config = RustCrypterConfig(
+            rust_crypter_path=args.rust_crypter_path,
+            target_architecture=args.target_arch,
+            build_mode=args.build_mode,
+            anti_vm=not args.no_anti_vm,
+            max_file_size=5 * 1024 * 1024,  # 5MB default
+        )
 
     # Process each file
     success_count = 0
     for input_file in binary_files:
         output_file = output_dir / input_file.name
-        if obfuscate_file(input_file, output_file, config):
+        if obfuscate_file(input_file, output_file, config, rust_crypter_config):
             success_count += 1
 
     logging.info(
