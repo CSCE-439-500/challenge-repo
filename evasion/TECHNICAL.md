@@ -35,7 +35,7 @@ The toolkit has been refactored into specialized, focused modules for better mai
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           PE EVASION PIPELINE                                  │
+│                           PE EVASION PIPELINE                                   │
 └─────────────────────────────────────────────────────────────────────────────────┘
 
 INPUT PE FILE
@@ -53,8 +53,8 @@ INPUT PE FILE
 └─────────────────┘
        │
        ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        OBFUSCATION MODULES                                      │
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                        OBFUSCATION MODULES                                    │
 ├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
 │   Mimicry       │   String        │   Section       │   Import                │
 │   Engine        │   Obfuscation   │   Manipulation  │   Manipulation          │
@@ -62,14 +62,14 @@ INPUT PE FILE
 │ • Template      │ • Identify      │ • Add junk      │ • Inflate import        │
 │   matching      │   suspicious    │   data          │   table                 │
 │ • Copy benign   │   strings       │ • Inject        │ • Add dead code         │
-│   characteristics│ • Base64       │   payloads      │ • Obfuscate APIs        │
+│   traits        │ • Base64        │   payloads      │ • Obfuscate APIs        │
 │ • Section names │   encoding      │ • Modify        │                         │
-│ • Import tables │                 │   characteristics│                         │
+│ • Import tables │                 │   traits        |                         │
 └─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
        │
        ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        ENHANCEMENT MODULES                                      │
+┌───────────────────────────────────────────────────────────────────────────────┐
+│                        ENHANCEMENT MODULES                                    │
 ├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
 │   Compression   │   Encryption    │   Static        │   Detection             │
 │                 │                 │   Evasion       │   Mitigation            │

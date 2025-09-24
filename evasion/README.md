@@ -32,6 +32,9 @@ rt_evade is a specialized toolkit designed for **static ML evasion research**. I
 ## 🚀 Quick Start
 
 ```bash
+# first
+pip install -r requirements.txt
+
 # Basic PE obfuscation
 make run INPUT=path/to/payload.exe
 
@@ -41,7 +44,7 @@ make run-pe INPUT=path/to/payload.exe
 # Batch process a directory
 make batch-obfuscate INPUT_DIR=samples/
 
-# Docker deployment
+# Docker deployment (no need to run pip install for this)
 make docker-run INPUT=path/to/payload.exe
 ```
 
@@ -82,17 +85,6 @@ make test-compression
 make test-encryption
 ```
 
-## 📦 Project Structure
-
-```
-rt_evade/
-├── core/                    # Safety and orchestration
-├── pe/                      # PE-specific obfuscation modules
-├── dropper/                 # Runtime execution
-├── batch_obfuscate.py       # Batch processing
-└── tests/                   # Comprehensive test suite
-```
-
 ## 🐳 Docker Support
 
 The toolkit is fully containerized for easy deployment:
@@ -119,10 +111,6 @@ make docker-run INPUT=samples/
 - **PE Files Only**: Input must be Windows Portable Executable files
 - **Safety Controls**: All operations require explicit environment variable consent
 - **No Malicious Use**: Intended for defensive research and authorized testing only
-
-## 📄 License
-
-Research Use Only - See [LICENSE](LICENSE) for details.
 
 ---
 
