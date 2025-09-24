@@ -126,10 +126,14 @@ OUTPUT PE FILE (Obfuscated)
 - Injects payloads into existing sections
 - Modifies section characteristics to appear benign
 
-### Compression
-- Multiple algorithms: zlib, gzip, bz2
-- Configurable compression levels
-- Automatic decompression stubs
+### Compression / Packing
+- Multiple algorithms: zlib, gzip, bz2 (in-memory)
+- External packer: UPX integration (guarded subprocess)
+  - Enabled via `USE_UPX=1` or Make `UPX=1` (default on in Make targets)
+  - Optional args via `UPX_ARGS` (e.g., `"--best --lzma"`)
+  - Gated by `REDTEAM_MODE` and `ALLOW_ACTIONS`; uses temp files and cleans up
+- Configurable compression levels (for in-memory algorithms)
+- Automatic decompression stubs for internal compression path
 
 ### Encryption
 - Code section encryption (XOR, simple substitution)

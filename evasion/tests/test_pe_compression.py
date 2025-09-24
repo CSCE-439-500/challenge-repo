@@ -258,3 +258,83 @@ class TestCompressionConfig:
         assert config.compression_algorithm == "gzip"
         assert config.compression_level == 9
         assert config.min_file_size == 2048
+
+
+class TestUPXPacker:
+    """Tests for external packer (UPX) integration."""
+
+    def test_upx_packer_success(self, mock_pe_data):
+        """Pack with UPX: mock subprocess to succeed and reduce size."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}):
+            large_data = mock_pe_data + b"PADDING" * 400
+
+            def fake_run(args, stdout=None, stderr=None, check=None):  # noqa: ARG001
+                try:
+                    out_index = args.index("-o") + 1
+                    output_path = args[out_index]
+                except Exception as exc:  # pragma: no cover - defensive
+                    raise AssertionError(f"Unexpected args for upx: {args}") from exc
+
+                with open(output_path, "wb") as f:
+                    f.write(b"packed" * 50)
+
+                class Result:
+                    returncode = 0
+                    stdout = b"OK"
+                    stderr = b""
+
+                return Result()
+
+            config = CompressionConfig(
+                enable_compression=False,
+                enable_packer=True,
+                packer_name="upx",
+                packer_args=["--best"],
+            )
+            compressor = PECompressor(config)
+
+            with patch("rt_evade.pe.compression.subprocess.run", side_effect=fake_run):
+                packed = compressor.compress_pe(large_data)
+
+            assert isinstance(packed, bytes)
+            assert len(packed) < len(large_data)
+
+    def test_upx_packer_failure_returns_original(self, mock_pe_data):
+        """If UPX fails (non-zero), original bytes are returned."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}):
+            large_data = mock_pe_data + b"DATA" * 600
+
+            def fake_run_fail(
+                args, stdout=None, stderr=None, check=None
+            ):  # noqa: ARG001
+                class Result:
+                    returncode = 1
+                    stdout = b""
+                    stderr = b"failed"
+
+                return Result()
+
+            config = CompressionConfig(
+                enable_packer=True,
+                packer_name="upx",
+            )
+            compressor = PECompressor(config)
+
+            with patch(
+                "rt_evade.pe.compression.subprocess.run", side_effect=fake_run_fail
+            ):
+                packed = compressor.compress_pe(large_data)
+
+            assert packed == large_data
+
+    def test_upx_requires_allow_actions(self, mock_pe_data):
+        """UPX packing is gated by guard_can_write (ALLOW_ACTIONS)."""
+        with patch.dict(os.environ, {"REDTEAM_MODE": "true"}, clear=True):
+            config = CompressionConfig(
+                enable_packer=True,
+                packer_name="upx",
+            )
+            compressor = PECompressor(config)
+
+            with pytest.raises(PermissionError, match="Writes disabled"):
+                compressor.compress_pe(mock_pe_data + b"X" * 3000)

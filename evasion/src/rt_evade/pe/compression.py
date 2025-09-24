@@ -5,13 +5,16 @@ while maintaining execution compatibility.
 """
 
 import logging
+import os
+import subprocess
+import tempfile
 import zlib
 import gzip
 import bz2
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
 
-from ..core.guards import require_redteam_mode
+from ..core.guards import require_redteam_mode, guard_can_write
 from .writer import PEWriter
 
 logger = logging.getLogger(__name__)
@@ -25,6 +28,11 @@ class CompressionConfig:
     compression_algorithm: str = "zlib"  # zlib, gzip, bz2
     compression_level: int = 6  # 1-9 for zlib/gzip, 1-9 for bz2
     min_file_size: int = 1024  # Don't compress files smaller than this
+    # Optional external packer support (e.g., UPX). When set, this takes precedence
+    # over internal compression algorithms.
+    enable_packer: bool = False
+    packer_name: str = "upx"  # currently only "upx" supported
+    packer_args: Optional[List[str]] = None  # extra args, e.g., ["--best"]
 
 
 class PECompressor:
@@ -57,6 +65,15 @@ class PECompressor:
         Raises:
             ValueError: If compression fails or file is too small
         """
+        # If an external packer is enabled via config or env, use it and return early.
+        use_upx_env = os.getenv("USE_UPX", "").lower() in {"1", "true", "yes"}
+        if self.config.enable_packer or use_upx_env:
+            # If env provides extra args, prefer them
+            upx_args_env = os.getenv("UPX_ARGS")
+            if upx_args_env:
+                object.__setattr__(self.config, "packer_args", upx_args_env.split())
+            return self._pack_with_upx(pe_data)
+
         if not self.config.enable_compression:
             logger.info("action=compression_disabled")
             return pe_data
@@ -105,6 +122,99 @@ class PECompressor:
         )
 
         return result
+
+    def _pack_with_upx(self, pe_data: bytes) -> bytes:
+        """Pack the PE using UPX via a guarded subprocess and temp files.
+
+        Notes:
+            - Obeys REDTEAM_MODE and ALLOW_ACTIONS via guards.
+            - Uses OS temp directory and ensures cleanup.
+
+        Args:
+            pe_data: Raw PE file bytes to pack
+
+        Returns:
+            Packed PE bytes if packing succeeds; original bytes if packing fails
+            or does not reduce size.
+        """
+        require_redteam_mode()
+        guard_can_write()
+
+        if self.config.packer_name.lower() != "upx":
+            logger.warning(
+                "action=unknown_packer packer=%s skipping",
+                self.config.packer_name,
+            )
+            return pe_data
+
+        # Create temp input and output files
+        input_tmp = None
+        output_tmp = None
+        try:
+            input_tmp = tempfile.NamedTemporaryFile(
+                prefix="rt_upx_in_", suffix=".exe", delete=False
+            )
+            output_tmp = tempfile.NamedTemporaryFile(
+                prefix="rt_upx_out_", suffix=".exe", delete=False
+            )
+            input_path = input_tmp.name
+            output_path = output_tmp.name
+            input_tmp.write(pe_data)
+            input_tmp.flush()
+            input_tmp.close()
+            output_tmp.close()
+
+            # Build the UPX command: upx [args] -o output input
+            args = [self.config.packer_name]
+            if self.config.packer_args:
+                args.extend(self.config.packer_args)
+            args.extend(["-o", output_path, input_path])
+
+            logger.info("action=packer_start packer=upx cmd=%s", " ".join(args))
+            completed = subprocess.run(
+                args,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+
+            if completed.returncode != 0:
+                logger.warning(
+                    "action=packer_failed packer=upx code=%d stderr=%s",
+                    completed.returncode,
+                    completed.stderr.decode(errors="ignore"),
+                )
+                # Fall back to original bytes on failure
+                return pe_data
+
+            with open(output_path, "rb") as f_out:
+                packed = f_out.read()
+
+            if len(packed) >= len(pe_data):
+                logger.info(
+                    "action=packer_no_gain packer=upx original=%d packed=%d",
+                    len(pe_data),
+                    len(packed),
+                )
+                return pe_data
+
+            logger.info(
+                "action=packer_applied packer=upx original_size=%d packed_size=%d",
+                len(pe_data),
+                len(packed),
+            )
+            return packed
+        finally:
+            # Cleanup temp files
+            for tmp in (
+                input_tmp.name if input_tmp else None,
+                output_tmp.name if output_tmp else None,
+            ):
+                if tmp and os.path.exists(tmp):
+                    try:
+                        os.remove(tmp)
+                    except OSError:
+                        logger.debug("action=tempfile_cleanup_failed path=%s", tmp)
 
     def _compress_data(self, data: bytes) -> bytes:
         """Compress data using the configured algorithm.
