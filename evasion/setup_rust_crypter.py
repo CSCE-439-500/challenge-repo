@@ -101,8 +101,19 @@ def test_rust_crypter_build(rust_crypter_path):
         logger.error("Crypt component build failed: %s", e.stderr)
         return False
     
-    # Test stub build
+    # Test stub build with dummy files (stub requires encrypted files to exist)
+    stub_src = rust_crypter_path / "stub" / "src"
+    
+    # Create dummy encrypted files for testing
+    dummy_encrypted = stub_src / "encrypted_Input.bin"
+    dummy_key = stub_src / "key.txt"
+    
     try:
+        # Create dummy files
+        dummy_encrypted.write_bytes(b"dummy_encrypted_data")
+        dummy_key.write_text("dummy_key_data")
+        
+        # Test stub build
         subprocess.run(
             ["cargo", "build", "--target=x86_64-pc-windows-gnu"],
             cwd=rust_crypter_path / "stub",
@@ -111,8 +122,16 @@ def test_rust_crypter_build(rust_crypter_path):
             text=True
         )
         logger.info("Stub component builds successfully")
+        
+        # Clean up dummy files
+        dummy_encrypted.unlink(missing_ok=True)
+        dummy_key.unlink(missing_ok=True)
+        
     except subprocess.CalledProcessError as e:
         logger.error("Stub component build failed: %s", e.stderr)
+        # Clean up dummy files even on failure
+        dummy_encrypted.unlink(missing_ok=True)
+        dummy_key.unlink(missing_ok=True)
         return False
     
     return True
