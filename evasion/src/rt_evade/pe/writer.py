@@ -38,7 +38,7 @@ class PEWriter:
         self.pe = PE(data=self.pe_data)
         self._validate_pe()
 
-        logger.info(
+        logger.debug(
             "action=pe_writer_initialized size=%d machine=0x%x",
             len(pe_data),
             self.pe.FILE_HEADER.Machine,
@@ -261,16 +261,22 @@ class PEWriter:
         guard_can_write()
 
         replacements_made = 0
+        strings_too_long = 0
+        strings_processed = 0
 
         for old_string, new_string in string_replacements.items():
+            strings_processed += 1
             old_bytes = old_string.encode("utf-8")
             new_bytes = new_string.encode("utf-8")
 
             # Ensure new string is not longer than old string
             if len(new_bytes) > len(old_bytes):
-                logger.warning(
-                    "action=string_too_long old=%s new=%s", old_string, new_string
-                )
+                strings_too_long += 1
+                # Only log first few examples to avoid spam
+                if strings_too_long <= 3:
+                    logger.debug(
+                        "action=string_too_long old=%s new=%s", old_string, new_string
+                    )
                 continue
 
             # Pad new string to match old string length
@@ -287,7 +293,22 @@ class PEWriter:
                 replacements_made += 1
                 start = pos + 1
 
-        logger.info("action=strings_replaced count=%d", replacements_made)
+        # Log summary instead of individual replacements
+        if strings_too_long > 3:
+            logger.debug(
+                "action=string_too_long_summary total_too_long=%d examples_shown=3",
+                strings_too_long,
+            )
+        elif strings_too_long > 0:
+            logger.debug(
+                "action=string_too_long_summary total_too_long=%d", strings_too_long
+            )
+
+        logger.info(
+            "action=strings_replaced count=%d processed=%d",
+            replacements_made,
+            strings_processed,
+        )
         return replacements_made
 
     def add_junk_data(self, section_name: str, size: int) -> bool:

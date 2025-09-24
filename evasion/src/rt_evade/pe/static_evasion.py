@@ -54,7 +54,9 @@ class PEStaticEvasion:
         Returns:
             List of suspicious string patterns
         """
-        return MALWARE_STRINGS + SUSPICIOUS_API_FUNCTIONS
+        patterns = MALWARE_STRINGS + SUSPICIOUS_API_FUNCTIONS
+        logger.debug("action=suspicious_patterns_loaded count=%d", len(patterns))
+        return patterns
 
     def _load_tool_signatures(self) -> Dict[str, List[str]]:
         """Load tool signatures to remove.
@@ -303,16 +305,21 @@ class PEStaticEvasion:
         """
         try:
             with PEWriter(pe_data) as writer:
-                # Remove tool signature strings
+                # Build all tool signature replacements at once to avoid repetitive logging
+                tool_replacements = {}
                 for signatures in self.tool_signatures.values():
                     for signature in signatures:
                         # Replace with benign alternatives or remove
                         replacement = self._get_benign_replacement(signature)
-                        writer.modify_strings({signature: replacement})
+                        tool_replacements[signature] = replacement
 
+                # Apply all tool signature replacements in one call
+                replacements_made = writer.modify_strings(tool_replacements)
                 result = writer.get_modified_data()
 
-            logger.info("action=tool_signatures_removed")
+            logger.info(
+                "action=tool_signatures_removed replacements_made=%d", replacements_made
+            )
             return result
 
         except Exception as e:
@@ -330,17 +337,21 @@ class PEStaticEvasion:
         """
         try:
             with PEWriter(pe_data) as writer:
-                # Remove suspicious string patterns
+                # Build all string replacements at once to avoid repetitive logging
+                string_replacements = {}
                 for pattern in self.suspicious_patterns:
                     # Replace with benign alternatives or remove
                     replacement = self._get_benign_replacement(pattern)
-                    writer.modify_strings({pattern: replacement})
+                    string_replacements[pattern] = replacement
 
+                # Apply all replacements in one call
+                replacements_made = writer.modify_strings(string_replacements)
                 result = writer.get_modified_data()
 
             logger.info(
-                "action=suspicious_strings_removed count=%d",
+                "action=suspicious_strings_removed count=%d replacements_made=%d",
                 len(self.suspicious_patterns),
+                replacements_made,
             )
             return result
 

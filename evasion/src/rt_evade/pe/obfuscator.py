@@ -150,11 +150,8 @@ class PEObfuscator:
             )
             # Continue anyway, but log the issues
 
-        logger.info(
-            "action=pe_obfuscation_completed original_size=%d final_size=%d",
-            len(pe_data),
-            len(obfuscated_data),
-        )
+        # Log final summary
+        self._log_obfuscation_summary(pe_data, obfuscated_data)
 
         return bytes(obfuscated_data)
 
@@ -233,7 +230,7 @@ class PEObfuscator:
                 if plan["fake_imports"]:
                     import_metadata = self._create_import_metadata(plan["fake_imports"])
                     writer.add_section(
-                        ".fake_imports", import_metadata, characteristics=0x40000000
+                        ".fakeimp", import_metadata, characteristics=0x40000000
                     )  # IMAGE_SCN_CNT_INITIALIZED_DATA
 
                 result = writer.get_modified_data()
@@ -459,3 +456,25 @@ class PEObfuscator:
             "original_errors": len(orig_validation["errors"]),
             "obfuscated_errors": len(obf_validation["errors"]),
         }
+
+    def _log_obfuscation_summary(
+        self, original_data: bytes, obfuscated_data: bytes
+    ) -> None:
+        """Log a summary of the obfuscation process.
+
+        Args:
+            original_data: Original PE data
+            obfuscated_data: Obfuscated PE data
+        """
+        size_change = len(obfuscated_data) - len(original_data)
+        size_change_pct = (
+            (size_change / len(original_data)) * 100 if len(original_data) > 0 else 0
+        )
+
+        logger.info(
+            "action=pe_obfuscation_completed original_size=%d final_size=%d size_change=%d size_change_pct=%.1f%%",
+            len(original_data),
+            len(obfuscated_data),
+            size_change,
+            size_change_pct,
+        )
