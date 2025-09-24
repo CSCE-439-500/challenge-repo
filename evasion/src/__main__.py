@@ -15,6 +15,7 @@ from .rt_evade.core.pipeline import TransformPipeline
 from .rt_evade.core.transform import TransformPlan
 from .rt_evade.dropper.embed import generate_embedded_payload_module
 from .rt_evade.dropper.cli import main as dropper_main
+from .rt_evade.dropper.rust_crypter import RustCrypterIntegration, RustCrypterConfig
 from .rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
 from .rt_evade.pe.packer import PackerConfig
 
@@ -185,6 +186,45 @@ def _setup_embed_parser(subparsers) -> argparse.ArgumentParser:
     return parser
 
 
+def _setup_rust_crypter_parser(subparsers) -> argparse.ArgumentParser:
+    """Set up the rust-crypter subcommand parser."""
+    parser = subparsers.add_parser(
+        "rust-crypter", help="Encrypt PE file using Rust-Crypter and generate in-memory execution stub"
+    )
+    parser.add_argument("input", help="Path to input PE file")
+    parser.add_argument(
+        "--output", help="Output stub executable path (default: auto-generated)"
+    )
+    parser.add_argument(
+        "--rust-crypter-path",
+        help="Path to Rust-Crypter directory (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--target-arch",
+        choices=["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"],
+        default="x86_64-pc-windows-gnu",
+        help="Rust target architecture (default: x86_64-pc-windows-gnu)"
+    )
+    parser.add_argument(
+        "--build-mode",
+        choices=["release", "debug"],
+        default="release",
+        help="Build mode for stub compilation (default: release)"
+    )
+    parser.add_argument(
+        "--no-anti-vm",
+        action="store_true",
+        help="Disable anti-VM features in stub"
+    )
+    parser.add_argument(
+        "--max-file-size",
+        type=int,
+        default=5 * 1024 * 1024,
+        help="Maximum file size in bytes (default: 5MB)"
+    )
+    return parser
+
+
 def _handle_dropper_command(args) -> int:
     """Handle the dropper subcommand."""
     return dropper_main(
@@ -223,6 +263,45 @@ def _handle_embed_command(args) -> int:
     )
 
     logging.info("action=embed_complete module=%s hash=%s", module_path, payload_hash)
+    return 0
+
+
+def _handle_rust_crypter_command(args) -> int:
+    """Handle the rust-crypter subcommand."""
+    original = load_bytes_from_file(args.input)
+    
+    # Create Rust-Crypter configuration
+    config = RustCrypterConfig(
+        rust_crypter_path=args.rust_crypter_path,
+        target_architecture=args.target_arch,
+        build_mode=args.build_mode,
+        anti_vm=not args.no_anti_vm,
+        max_file_size=args.max_file_size,
+    )
+    
+    # Initialize Rust-Crypter integration
+    rust_crypter = RustCrypterIntegration(config)
+    
+    # Determine output path
+    output_path = None
+    if args.output:
+        output_path = Path(args.output)
+    
+    # Create encrypted payload with stub
+    stub_path = rust_crypter.create_encrypted_payload(original, output_path)
+    
+    # Generate report
+    report = rust_crypter.get_encryption_report(original, b"", stub_path)
+    
+    logging.info(
+        "action=rust_crypter_complete "
+        "stub_path=%s original_size=%d stub_size=%d compression_ratio=%.2f%%",
+        stub_path,
+        report["original_size"],
+        report["stub_size"],
+        report["compression_ratio"]
+    )
+    
     return 0
 
 
@@ -269,6 +348,7 @@ def main(argv: List[str] | None = None) -> int:
     _setup_transform_parser(sub)
     _setup_dropper_parser(sub)
     _setup_embed_parser(sub)
+    _setup_rust_crypter_parser(sub)
 
     parser.add_argument(
         "--output", help="Optional output path (requires ALLOW_ACTIONS=true)"
@@ -282,6 +362,9 @@ def main(argv: List[str] | None = None) -> int:
 
     if args.cmd == "embed":
         return _handle_embed_command(args)
+
+    if args.cmd == "rust-crypter":
+        return _handle_rust_crypter_command(args)
 
     # Default: transform
     if args.cmd != "transform":
