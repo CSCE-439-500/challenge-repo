@@ -22,8 +22,9 @@ ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
 ENV_PYTHONPATH = PYTHONPATH=src
 ENV_UPX = USE_UPX=$(UPX)
 ENV_UPX_ARGS = UPX_ARGS=$(UPX_ARGS)
+ENV_RUST_CRYPTER = RUST_CRYPTER_PATH=$(PWD)/rust-crypter
 
-.PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections batch-obfuscate batch-dry-run docker-build docker-run docker-clean
+.PHONY: help init run run-pe run-crypt dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections test-rust-crypter batch-obfuscate batch-dry-run docker-build docker-run docker-clean
 
 help:
 	@echo "=== PE Evasion Toolkit - Modular Components ==="
@@ -32,6 +33,7 @@ help:
 	@echo "  run              - Basic PE obfuscation (mimicry + strings + imports) [UPX on by default]"
 	@echo "  run-pe           - Full PE obfuscation (all modules enabled) [UPX on by default]"
 	@echo "                     Disable packing with UPX=0. Extra flags via UPX_ARGS=\"--best --lzma\""
+	@echo "  run-crypt        - PE obfuscation + Rust-Crypter encryption (no packing/compression)"
 	@echo "  dry-run          - Show obfuscation plan without file writes"
 	@echo "  single           - One-shot: embed + bundle to standalone dropper"
 	@echo "  batch-obfuscate  - Obfuscate all binaries in a folder"
@@ -42,6 +44,7 @@ help:
 	@echo "  test-encryption  - Test encryption module only"
 	@echo "  test-strings     - Test string obfuscation module only"
 	@echo "  test-sections    - Test section manipulation module only"
+	@echo "  test-rust-crypter- Test Rust-Crypter integration module only"
 	@echo "  test-modules     - Test all specialized modules"
 	@echo ""
 	@echo "Utility Targets:"
@@ -59,9 +62,11 @@ help:
 	@echo "Usage Examples:"
 	@echo "  make run INPUT=payload.exe"
 	@echo "  make run-pe INPUT=payload.exe OUTPUT=out/obfuscated.exe"
+	@echo "  make run-crypt INPUT=payload.exe OUTPUT=out/encrypted.exe"
 	@echo "  make single INPUT=payload.exe DECODE_KEY=mykey"
 	@echo "  make batch-obfuscate INPUT_DIR=samples/"
 	@echo "  make test-compression"
+	@echo "  make test-rust-crypter"
 	@echo "  make docker-build"
 	@echo "  make docker-run INPUT=payload.exe"
 
@@ -83,6 +88,13 @@ run-pe: init
 	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUTPUT)
 
+run-crypt: init
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_RUST_CRYPTER) \
+	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
+	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-encryption \
+	--pe-rust-crypter \
+	--output $(OUTPUT)
+
 dry-run:
 	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
@@ -90,7 +102,7 @@ dry-run:
 	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true )
 
 # Specialized module testing
-test-modules: test-compression test-encryption test-strings test-sections
+test-modules: test-compression test-encryption test-strings test-sections test-rust-crypter
 	@echo "All specialized modules tested successfully!"
 
 test-compression:
@@ -104,6 +116,9 @@ test-strings:
 
 test-sections:
 	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_PYTHONPATH) $(PYTHON) -m pytest tests/test_pe_section_manipulation.py -v
+
+test-rust-crypter:
+	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_PYTHONPATH) $(PYTHON) -m pytest tests/test_rust_crypter_integration.py -v
 
 # Integration and utility targets
 test:

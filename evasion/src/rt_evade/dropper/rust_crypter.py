@@ -168,7 +168,7 @@ class RustCrypterIntegration:
                 raise ValueError("Rust-Crypter encryption timed out")
             
             # Read encrypted files
-            encrypted_bytes_path = rust_crypter_path / "crypt" / "encrypted_bytes.bin"
+            encrypted_bytes_path = rust_crypter_path / "crypt" / "encrypted_Input.bin"
             key_path = rust_crypter_path / "crypt" / "key.txt"
             
             if not encrypted_bytes_path.exists() or not key_path.exists():
@@ -186,7 +186,7 @@ class RustCrypterIntegration:
             if output_dir:
                 guard_can_write()
                 output_dir.mkdir(parents=True, exist_ok=True)
-                (output_dir / "encrypted_bytes.bin").write_bytes(encrypted_bytes)
+                (output_dir / "encrypted_Input.bin").write_bytes(encrypted_bytes)
                 (output_dir / "key.txt").write_bytes(key_bytes)
             
             logger.info(
@@ -215,7 +215,7 @@ class RustCrypterIntegration:
         stub_src_path = rust_crypter_path / "stub" / "src"
         
         # Write encrypted data and key to stub source directory
-        (stub_src_path / "encrypted_bytes.bin").write_bytes(encrypted_bytes)
+        (stub_src_path / "encrypted_Input.bin").write_bytes(encrypted_bytes)
         (stub_src_path / "key.txt").write_bytes(key_bytes)
         
         # Compile the stub
@@ -265,7 +265,7 @@ class RustCrypterIntegration:
         shutil.copy2(stub_exe_path, output_path)
         
         # Clean up generated files
-        for file_path in [stub_src_path / "encrypted_bytes.bin", stub_src_path / "key.txt"]:
+        for file_path in [stub_src_path / "encrypted_Input.bin", stub_src_path / "key.txt"]:
             if file_path.exists():
                 file_path.unlink()
         
