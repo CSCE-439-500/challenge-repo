@@ -72,7 +72,12 @@ class PECompressor:
             upx_args_env = os.getenv("UPX_ARGS")
             if upx_args_env:
                 object.__setattr__(self.config, "packer_args", upx_args_env.split())
-            return self._pack_with_upx(pe_data)
+            packed = self._pack_with_upx(pe_data)
+            if packed is pe_data or packed == pe_data:
+                # UPX failed or had no gain; fall back to internal compression path
+                logger.info("action=packer_fallback_to_internal packer=upx")
+            else:
+                return packed
 
         if not self.config.enable_compression:
             logger.info("action=compression_disabled")
