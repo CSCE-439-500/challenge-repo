@@ -8,6 +8,7 @@ INPUT ?= samples/sample.bin
 INPUT_DIR ?= samples
 OUTPUT ?= $(OUT_DIR)/out.bin
 OUTPUT_DIR ?= $(OUT_DIR)
+CUSTOM_OUTPUT_DIR ?= $(OUTPUT_DIR)
 DECODE_KEY ?= secret
 LOG_LEVEL ?= INFO
 
@@ -18,7 +19,7 @@ ENV_KEY = DECODE_KEY=$(DECODE_KEY)
 ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
 ENV_PYTHONPATH = PYTHONPATH=src
 
-.PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections batch-obfuscate batch-dry-run
+.PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections batch-obfuscate batch-dry-run docker-build docker-run docker-clean
 
 help:
 	@echo "=== PE Evasion Toolkit - Modular Components ==="
@@ -45,12 +46,19 @@ help:
 	@echo "  bundle           - Create standalone executable"
 	@echo "  clean            - Remove all build artifacts"
 	@echo ""
+	@echo "Docker Targets:"
+	@echo "  docker-build     - Build Docker image for PE evasion toolkit"
+	@echo "  docker-run       - Run PE obfuscation in Docker container"
+	@echo "  docker-clean     - Remove Docker images and containers"
+	@echo ""
 	@echo "Usage Examples:"
 	@echo "  make run INPUT=payload.exe"
 	@echo "  make run-pe INPUT=payload.exe OUTPUT=out/obfuscated.exe"
 	@echo "  make single INPUT=payload.exe DECODE_KEY=mykey"
 	@echo "  make batch-obfuscate INPUT_DIR=samples/"
 	@echo "  make test-compression"
+	@echo "  make docker-build"
+	@echo "  make docker-run INPUT=payload.exe"
 
 init:
 	@mkdir -p $(OUT_DIR)
@@ -131,3 +139,36 @@ batch-dry-run:
 clean:
 	@rm -rf $(OUT_DIR) build dist *.spec __pycache__ .pytest_cache
 	@echo "Cleaned all build artifacts"
+
+# Docker targets
+docker-build:
+	@echo "Building Docker image for PE evasion toolkit..."
+	docker build -t pe-evasion .
+	@echo "Docker image 'pe-evasion' built successfully"
+
+docker-run: docker-build
+	@echo "Running PE obfuscation in Docker container..."
+	@if [ -z "$(INPUT)" ]; then \
+		echo "Error: INPUT is required for docker-run"; \
+		echo "Usage: make docker-run INPUT=path/to/file"; \
+		exit 1; \
+	fi
+	@if [ ! -e "$(INPUT)" ]; then \
+		echo "Error: Input file '$(INPUT)' does not exist"; \
+		exit 1; \
+	fi
+	@mkdir -p $(OUT_DIR)
+	docker run --rm \
+		-v "$(PWD)/$(INPUT):/input/$(INPUT)" \
+		-v "$(PWD)/$(OUTPUT_DIR):/output" \
+		pe-evasion \
+		--input "/input/$(INPUT)" \
+		--output-dir /output \
+		--log-level $(LOG_LEVEL)
+	@echo "Docker processing complete. Check $(OUTPUT_DIR) for output files."
+
+docker-clean:
+	@echo "Cleaning Docker images and containers..."
+	docker rmi pe-evasion 2>/dev/null || true
+	docker container prune -f
+	@echo "Docker cleanup complete"

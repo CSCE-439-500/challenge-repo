@@ -12,9 +12,9 @@ import sys
 from pathlib import Path
 from typing import List
 
-from rt_evade.core.guards import require_redteam_mode, guard_can_write
-from rt_evade.core.pipeline import TransformPipeline
-from rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
+from .rt_evade.core.guards import require_redteam_mode, guard_can_write
+from .rt_evade.core.pipeline import TransformPipeline
+from .rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
 
 
 def _setup_logging() -> None:
