@@ -258,3 +258,6 @@ class TestCompressionConfig:
         assert config.compression_algorithm == "gzip"
         assert config.compression_level == 9
         assert config.min_file_size == 2048
+
+
+# UPX packer tests moved to tests/test_pe_packer.py after refactor.

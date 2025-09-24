@@ -11,6 +11,8 @@ OUTPUT_DIR ?= $(OUT_DIR)
 CUSTOM_OUTPUT_DIR ?= $(OUTPUT_DIR)
 DECODE_KEY ?= secret
 LOG_LEVEL ?= INFO
+UPX ?= 1
+UPX_ARGS ?=
 
 # Common env vars
 ENV_REDTEAM = REDTEAM_MODE=true
@@ -18,6 +20,8 @@ ENV_ACTIONS = ALLOW_ACTIONS=true
 ENV_KEY = DECODE_KEY=$(DECODE_KEY)
 ENV_LOG = LOG_LEVEL=$(LOG_LEVEL)
 ENV_PYTHONPATH = PYTHONPATH=src
+ENV_UPX = USE_UPX=$(UPX)
+ENV_UPX_ARGS = UPX_ARGS=$(UPX_ARGS)
 
 .PHONY: help init run run-pe dry-run clean test dropper embed bundle single test-modules test-compression test-encryption test-strings test-sections batch-obfuscate batch-dry-run docker-build docker-run docker-clean
 
@@ -25,8 +29,9 @@ help:
 	@echo "=== PE Evasion Toolkit - Modular Components ==="
 	@echo ""
 	@echo "Main Targets:"
-	@echo "  run              - Basic PE obfuscation (mimicry + strings + imports)"
-	@echo "  run-pe           - Full PE obfuscation (all modules enabled)"
+	@echo "  run              - Basic PE obfuscation (mimicry + strings + imports) [UPX on by default]"
+	@echo "  run-pe           - Full PE obfuscation (all modules enabled) [UPX on by default]"
+	@echo "                     Disable packing with UPX=0. Extra flags via UPX_ARGS=\"--best --lzma\""
 	@echo "  dry-run          - Show obfuscation plan without file writes"
 	@echo "  single           - One-shot: embed + bundle to standalone dropper"
 	@echo "  batch-obfuscate  - Obfuscate all binaries in a folder"
@@ -65,21 +70,24 @@ init:
 
 # Main obfuscation targets
 run: init
-	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUTPUT)
 
 run-pe: init
-	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
+	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUTPUT)
 
 dry-run:
-	$(ENV_REDTEAM) $(ENV_LOG) \
+	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
 	$(PYTHON) -m $(SRC_MODULE) transform $(INPUT) \
-	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption
+	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true )
 
 # Specialized module testing
 test-modules: test-compression test-encryption test-strings test-sections
@@ -109,6 +117,7 @@ embed: init
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) \
 	$(PYTHON) -m $(SRC_MODULE) embed $(INPUT) \
 	--pe-obfuscate --pe-mimicry --pe-strings --pe-imports --pe-padding --pe-compression --pe-encryption \
+	$$( [ "$(UPX)" = "1" ] && echo --pe-packer || true ) \
 	--output $(OUT_DIR)/embedded_payload.py
 
 bundle: embed

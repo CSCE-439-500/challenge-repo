@@ -19,6 +19,7 @@ from .import_manipulator import PEImportManipulator
 from .static_evasion import PEStaticEvasion
 from .detection_mitigation import PEDetectionMitigation
 from .compression import PECompressor, CompressionConfig
+from .packer import PEPacker, PackerConfig
 from .encryption import PEEncryptor, EncryptionConfig
 from .string_obfuscation import PEStringObfuscator, StringObfuscationConfig
 from .section_manipulation import PESectionManipulator, SectionManipulationConfig
@@ -44,6 +45,7 @@ class PEObfuscationConfig:
     max_file_size: int = 5 * 1024 * 1024  # 5MB limit
 
     # Sub-configurations
+    packer_config: Optional[PackerConfig] = None
     compression_config: Optional[CompressionConfig] = None
     encryption_config: Optional[EncryptionConfig] = None
     string_obfuscation_config: Optional[StringObfuscationConfig] = None
@@ -73,6 +75,7 @@ class PEObfuscator:
         self.detection_mitigation = PEDetectionMitigation()
 
         # Initialize specialized obfuscators
+        self.packer = PEPacker(self.config.packer_config)
         self.compressor = PECompressor(self.config.compression_config)
         self.encryptor = PEEncryptor(self.config.encryption_config)
         self.string_obfuscator = PEStringObfuscator(
@@ -126,6 +129,9 @@ class PEObfuscator:
             obfuscated_data = self.section_manipulator.manipulate_sections(
                 obfuscated_data
             )
+
+        # New: Run external packer step before internal compression
+        obfuscated_data = self.packer.pack_pe(obfuscated_data)
 
         if self.config.enable_compression:
             obfuscated_data = self.compressor.compress_pe(obfuscated_data)

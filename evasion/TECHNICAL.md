@@ -16,6 +16,7 @@ The toolkit has been refactored into specialized, focused modules for better mai
 - **`writer.py`**: PE file modification while preserving structure
 - **`validator.py`**: PE format validation and integrity checking
 - **`mimicry.py`**: Benign software template matching and characteristic copying
+- **`packer.py`**: External packer integration (UPX), guarded and cleanup-safe
 - **`obfuscator.py`**: Main orchestration engine (refactored)
 
 ### Specialized Obfuscation Modules
@@ -33,81 +34,55 @@ The toolkit has been refactored into specialized, focused modules for better mai
 
 ## 🔄 PE Obfuscation Pipeline
 
-```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                           PE EVASION PIPELINE                                   │
-└─────────────────────────────────────────────────────────────────────────────────┘
+### **1. Initial Analysis**
 
-INPUT PE FILE
-       │
-       ▼
-┌─────────────────┐
-│   PE Reader     │ ◄── Parse PE headers, sections, imports
-│   (Analysis)    │
-└─────────────────┘
-       │
-       ▼
-┌─────────────────┐
-│  Transform      │ ◄── Orchestrate obfuscation modules
-│  Pipeline       │
-└─────────────────┘
-       │
-       ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                        OBFUSCATION MODULES                                    │
-├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
-│   Mimicry       │   String        │   Section       │   Import                │
-│   Engine        │   Obfuscation   │   Manipulation  │   Manipulation          │
-│                 │                 │                 │                         │
-│ • Template      │ • Identify      │ • Add junk      │ • Inflate import        │
-│   matching      │   suspicious    │   data          │   table                 │
-│ • Copy benign   │   strings       │ • Inject        │ • Add dead code         │
-│   traits        │ • Base64        │   payloads      │ • Obfuscate APIs        │
-│ • Section names │   encoding      │ • Modify        │                         │
-│ • Import tables │                 │   traits        |                         │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
-       │
-       ▼
-┌───────────────────────────────────────────────────────────────────────────────┐
-│                        ENHANCEMENT MODULES                                    │
-├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
-│   Compression   │   Encryption    │   Static        │   Detection             │
-│                 │                 │   Evasion       │   Mitigation            │
-│                 │                 │                 │                         │
-│ • zlib/gzip/bz2 │ • XOR encoding  │ • Clean         │ • Monitor file size     │
-│ • Configurable  │ • Substitution  │   metadata      │ • Optimize sections     │
-│   levels        │ • Environment   │ • Remove tool   │ • Generate benign       │
-│ • Auto stubs    │   key support   │   signatures    │   timestamps            │
-└─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
-       │
-       ▼
-┌─────────────────┐
-│  PE Writer      │ ◄── Reconstruct PE with obfuscated content
-│  (Reassembly)   │
-└─────────────────┘
-       │
-       ▼
-┌─────────────────┐
-│  PE Validator   │ ◄── Ensure format integrity and execution compatibility
-│  (Verification) │
-└─────────────────┘
-       │
-       ▼
-OUTPUT PE FILE (Obfuscated)
-       │
-       ▼
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                        RUNTIME EXECUTION                                        │
-├─────────────────┬─────────────────┬─────────────────────────────────────────────┤
-│   Dropper       │   Standalone    │   In-Memory                                 │
-│   (Embed)       │   Executable    │   Decoding                                  │
-│                 │                 │                                             │
-│ • Embed PE      │ • PyInstaller   │ • Decode in memory                          │
-│   into Python   │   bundle        │ • No disk writes                            │
-│ • Generate      │ • Single binary │ • Temporary execution                       │
-│   module        │ • No env vars   │ • Cleanup on exit                           │
-└─────────────────┴─────────────────┴─────────────────────────────────────────────┘
-```
+This stage involves a **PE Reader** that analyzes the input PE file. It parses and understands the file's structure, including headers, sections, and import tables.
+
+### **2. Transformation Orchestration**
+
+The **Transform Pipeline** acts as the central orchestrator, managing and applying various modules to the PE file to begin the obfuscation process.
+
+### **3. Obfuscation Modules**
+
+This is the core of the pipeline where multiple techniques are applied to change the file's characteristics.
+
+| **Obfuscation Modules** | **Details** |
+| --- | --- |
+| **Mimicry Engine** | Alters file traits to mimic benign executables, such as section names and import tables.                |
+| **String Obfuscation** | Identifies and conceals suspicious strings using techniques like Base64 encoding.                       |
+| **Section Manipulation** | Modifies the file's layout by adding junk data, injecting payloads, or altering section traits.         |
+| **Import Manipulation** | Inflates the import table with unnecessary entries or obfuscates API calls to confuse analysis.           |
+---
+
+### **4. Enhancement Modules**
+
+| **Enhancement Modules** | **Details** |
+| --- | --- |
+| **Packer** | Utilizes the popular UPX packer but adds anti-analysis guards to prevent it from being easily unpacked by security tools. |
+| **Compression** | Reduces file size and hinders static analysis by packing the code using algorithms like zlib or gzip.       |
+| **Encryption** | Encrypts the file's content using methods like XOR encoding, requiring a key to decrypt at runtime.          |
+| **Static Evasion** | Cleans up metadata and removes signatures that security tools might flag, such as compiler information.     |
+| **Detection Mitigation** | Implements anti-analysis measures like monitoring file size changes, optimizing code sections, and generating benign timestamps. |
+
+---
+
+### **5. Finalization**
+
+This stage involves reassembling and verifying the modified file.
+
+* **PE Writer (Reassembly):** The obfuscated content is used to rebuild the PE file's structure.
+* **PE Validator (Verification):** The newly created file is checked to ensure its integrity and that it remains executable.
+
+### **6. Runtime Execution**
+
+The final obfuscated PE file is ready for deployment. The choice of execution method can further enhance evasion.
+
+| **Execution Method** | **Details** |
+| --- | --- |
+| **Dropper (Embedded)** | Embeds the PE file within another script (e.g., a Python module) that drops and executes it.              |
+| **Standalone Executable** | Packages the entire application into a single binary, often with tools like PyInstaller, to avoid dependencies. |
+| **In-Memory Decoding** | Decodes and executes the payload directly in memory without writing it to disk, a common stealth technique.      |
+---
 
 ## 🛡️ PE Obfuscation Features
 
@@ -126,10 +101,15 @@ OUTPUT PE FILE (Obfuscated)
 - Injects payloads into existing sections
 - Modifies section characteristics to appear benign
 
+### Packing
+- `packer.py` runs UPX under guardrails
+- Enable via obfuscation config `packer_config.enable_packer=True`
+- Optional args via env `UPX_ARGS` or config `packer_args`
+- Requires `REDTEAM_MODE=true` and `ALLOW_ACTIONS=true`; uses temp files and cleans up
+
 ### Compression
-- Multiple algorithms: zlib, gzip, bz2
-- Configurable compression levels
-- Automatic decompression stubs
+- Algorithms: zlib, gzip, bz2; configurable levels
+- Automatic decompression stub injection
 
 ### Encryption
 - Code section encryption (XOR, simple substitution)

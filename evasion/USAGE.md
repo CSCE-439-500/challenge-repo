@@ -18,6 +18,7 @@ make help
 make run INPUT=path/to/payload.exe
 
 # Full PE obfuscation (all modules enabled)
+# UPX packing is ON by default via Make; disable with UPX=0
 make run-pe INPUT=path/to/payload.exe OUTPUT=out/obfuscated.exe
 
 # One-shot: embed + bundle to standalone dropper
@@ -43,6 +44,7 @@ make test-sections
 make docker-build
 
 # Process a single file
+# Pass UPX=0 to disable packing; customize args with UPX_ARGS
 make docker-run INPUT=path/to/payload.exe
 
 # Process a directory of files (batch obfuscation)
@@ -111,6 +113,8 @@ docker run pe-evasion --help
 ### Environment Variables
 - `REDTEAM_MODE=true` - Required to enable toolkit
 - `ALLOW_ACTIONS=true` - Required for file writes
+- `USE_UPX=1` - Enable UPX packing (Make passes this automatically unless `UPX=0`)
+- `UPX_ARGS="--best --lzma"` - Extra flags for UPX
 - `DECODE_KEY=secret` - Encryption key for runtime decoding
 - `LOG_LEVEL=INFO` - Logging verbosity
 
@@ -121,6 +125,8 @@ docker run pe-evasion --help
 - `OUTPUT_DIR` - Output directory for batch obfuscation (default: `out`)
 - `DECODE_KEY` - Encryption key (default: `secret`)
 - `LOG_LEVEL` - Log level (default: `INFO`)
+- `UPX=1` - Enable UPX packing by default in `run`, `run-pe`, `dry-run` (set `UPX=0` to disable)
+- `UPX_ARGS="--best --lzma"` - Extra flags for UPX
 
 ## 🧪 Testing
 

@@ -25,6 +25,7 @@ class CompressionConfig:
     compression_algorithm: str = "zlib"  # zlib, gzip, bz2
     compression_level: int = 6  # 1-9 for zlib/gzip, 1-9 for bz2
     min_file_size: int = 1024  # Don't compress files smaller than this
+    # Note: External packers are handled in rt_evade.pe.packer as a separate step.
 
 
 class PECompressor:
@@ -57,6 +58,8 @@ class PECompressor:
         Raises:
             ValueError: If compression fails or file is too small
         """
+        # External packers are handled in a separate module and step.
+
         if not self.config.enable_compression:
             logger.info("action=compression_disabled")
             return pe_data
@@ -105,6 +108,8 @@ class PECompressor:
         )
 
         return result
+
+    
 
     def _compress_data(self, data: bytes) -> bytes:
         """Compress data using the configured algorithm.
