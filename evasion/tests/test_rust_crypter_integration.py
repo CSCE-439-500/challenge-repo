@@ -3,13 +3,15 @@
 These tests verify the Rust-Crypter integration functionality.
 """
 import os
+import subprocess
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from src.rt_evade.dropper.rust_crypter import RustCrypterIntegration, RustCrypterConfig
+from rt_evade.dropper.rust_crypter import RustCrypterIntegration, RustCrypterConfig
 
 
 class TestRustCrypterConfig:
@@ -59,8 +61,8 @@ class TestRustCrypterIntegration:
         if "ALLOW_ACTIONS" in os.environ:
             del os.environ["ALLOW_ACTIONS"]
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
     def test_validation_success(self, mock_exists, mock_run):
         """Test successful validation of Rust-Crypter setup."""
         # Mock file existence checks
@@ -75,9 +77,13 @@ class TestRustCrypterIntegration:
         integration = RustCrypterIntegration(config)
         assert integration.config == config
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    def test_validation_rust_not_found(self, mock_run):
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
+    def test_validation_rust_not_found(self, mock_exists, mock_run):
         """Test validation failure when Rust is not found."""
+        # Mock file existence for Rust-Crypter structure
+        mock_exists.return_value = True
+        
         # Mock cargo not found
         mock_run.side_effect = FileNotFoundError("cargo not found")
         
@@ -86,7 +92,7 @@ class TestRustCrypterIntegration:
         with pytest.raises(RuntimeError, match="Rust toolchain not found"):
             RustCrypterIntegration(config)
     
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
     def test_validation_rust_crypter_not_found(self, mock_exists):
         """Test validation failure when Rust-Crypter is not found."""
         # Mock file not found
@@ -97,22 +103,21 @@ class TestRustCrypterIntegration:
         with pytest.raises(RuntimeError, match="Rust-Crypter not found"):
             RustCrypterIntegration(config)
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
-    @patch('src.rt_evade.dropper.rust_crypter.shutil.copy2')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.write_bytes')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.read_bytes')
-    def test_encrypt_pe_file_success(self, mock_read_bytes, mock_write_bytes, 
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.shutil.copy2')
+    @patch('rt_evade.dropper.rust_crypter.Path.write_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.read_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.unlink')
+    def test_encrypt_pe_file_success(self, mock_unlink, mock_read_bytes, mock_write_bytes, 
                                    mock_copy2, mock_exists, mock_run):
         """Test successful PE file encryption."""
         # Mock file existence
         mock_exists.return_value = True
         
-        # Mock cargo version check
-        mock_run.return_value = MagicMock(stdout="cargo 1.70.0", returncode=0)
-        
-        # Mock encryption process
+        # Mock cargo version check and encryption process
         mock_run.side_effect = [
+            MagicMock(stdout="cargo 1.70.0", returncode=0),  # cargo version
             MagicMock(stdout="Encryption successful", returncode=0),  # cargo run
         ]
         
@@ -121,6 +126,9 @@ class TestRustCrypterIntegration:
             b"encrypted_data",  # encrypted_bytes.bin
             b"encryption_key",  # key.txt
         ]
+        
+        # Mock unlink to avoid FileNotFoundError
+        mock_unlink.return_value = None
         
         config = RustCrypterConfig(rust_crypter_path="/test/path")
         integration = RustCrypterIntegration(config)
@@ -137,8 +145,8 @@ class TestRustCrypterIntegration:
         """Test encryption failure when file is too large."""
         config = RustCrypterConfig(max_file_size=100)  # 100 bytes limit
         
-        with patch('src.rt_evade.dropper.rust_crypter.subprocess.run'):
-            with patch('src.rt_evade.dropper.rust_crypter.Path.exists', return_value=True):
+        with patch('rt_evade.dropper.rust_crypter.subprocess.run'):
+            with patch('rt_evade.dropper.rust_crypter.Path.exists', return_value=True):
                 integration = RustCrypterIntegration(config)
         
         # Test with large file
@@ -147,27 +155,31 @@ class TestRustCrypterIntegration:
         with pytest.raises(ValueError, match="File too large"):
             integration.encrypt_pe_file(large_pe_data)
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
-    @patch('src.rt_evade.dropper.rust_crypter.shutil.copy2')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.write_bytes')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.read_bytes')
-    def test_generate_stub_success(self, mock_read_bytes, mock_write_bytes,
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.shutil.copy2')
+    @patch('rt_evade.dropper.rust_crypter.Path.write_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.read_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.unlink')
+    @patch('rt_evade.dropper.rust_crypter.Path.stat')
+    def test_generate_stub_success(self, mock_stat, mock_unlink, mock_read_bytes, mock_write_bytes,
                                  mock_copy2, mock_exists, mock_run):
         """Test successful stub generation."""
         # Mock file existence
         mock_exists.return_value = True
         
-        # Mock cargo version check
-        mock_run.return_value = MagicMock(stdout="cargo 1.70.0", returncode=0)
-        
-        # Mock stub compilation
+        # Mock cargo version check and stub compilation
         mock_run.side_effect = [
+            MagicMock(stdout="cargo 1.70.0", returncode=0),  # cargo version
             MagicMock(stdout="Stub compiled successfully", returncode=0),  # cargo build
         ]
         
         # Mock file operations
         mock_read_bytes.return_value = b"stub_executable_data"
+        mock_unlink.return_value = None
+        
+        # Mock stat for file size
+        mock_stat.return_value = MagicMock(st_size=1024)
         
         config = RustCrypterConfig(rust_crypter_path="/test/path")
         integration = RustCrypterIntegration(config)
@@ -186,8 +198,8 @@ class TestRustCrypterIntegration:
         """Test encryption report generation."""
         config = RustCrypterConfig()
         
-        with patch('src.rt_evade.dropper.rust_crypter.subprocess.run'):
-            with patch('src.rt_evade.dropper.rust_crypter.Path.exists', return_value=True):
+        with patch('rt_evade.dropper.rust_crypter.subprocess.run'):
+            with patch('rt_evade.dropper.rust_crypter.Path.exists', return_value=True):
                 integration = RustCrypterIntegration(config)
         
         # Create mock stub file
@@ -240,15 +252,19 @@ class TestRustCrypterIntegrationEdgeCases:
         with pytest.raises(RuntimeError, match="REDTEAM_MODE not enabled"):
             RustCrypterIntegration()
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
-    def test_encryption_timeout(self, mock_exists, mock_run):
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.shutil.copy2')
+    @patch('rt_evade.dropper.rust_crypter.Path.write_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.unlink')
+    def test_encryption_timeout(self, mock_unlink, mock_write_bytes, mock_copy2, mock_exists, mock_run):
         """Test encryption timeout handling."""
         mock_exists.return_value = True
         mock_run.side_effect = [
             MagicMock(stdout="cargo 1.70.0", returncode=0),  # cargo version
             subprocess.TimeoutExpired("cargo", 300),  # encryption timeout
         ]
+        mock_unlink.return_value = None
         
         config = RustCrypterConfig(rust_crypter_path="/test/path")
         integration = RustCrypterIntegration(config)
@@ -256,15 +272,20 @@ class TestRustCrypterIntegrationEdgeCases:
         with pytest.raises(ValueError, match="Rust-Crypter encryption timed out"):
             integration.encrypt_pe_file(b"test_data")
     
-    @patch('src.rt_evade.dropper.rust_crypter.subprocess.run')
-    @patch('src.rt_evade.dropper.rust_crypter.Path.exists')
-    def test_encryption_failure(self, mock_exists, mock_run):
+    @patch('rt_evade.dropper.rust_crypter.subprocess.run')
+    @patch('rt_evade.dropper.rust_crypter.Path.exists')
+    @patch('rt_evade.dropper.rust_crypter.shutil.copy2')
+    @patch('rt_evade.dropper.rust_crypter.Path.write_bytes')
+    @patch('rt_evade.dropper.rust_crypter.Path.unlink')
+    def test_encryption_failure(self, mock_unlink, mock_write_bytes, mock_copy2, mock_exists, mock_run):
         """Test encryption failure handling."""
+        # Mock file existence - return True for all files during validation
         mock_exists.return_value = True
         mock_run.side_effect = [
             MagicMock(stdout="cargo 1.70.0", returncode=0),  # cargo version
-            MagicMock(stderr="Encryption failed", returncode=1),  # encryption failure
+            subprocess.CalledProcessError(1, "cargo", stderr="Encryption failed"),  # encryption failure
         ]
+        mock_unlink.return_value = None
         
         config = RustCrypterConfig(rust_crypter_path="/test/path")
         integration = RustCrypterIntegration(config)

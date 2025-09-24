@@ -184,7 +184,7 @@ def main():
     logger.info("Environment variable set in: %s", env_file.absolute())
     logger.info("")
     logger.info("You can now use the rust-crypter command:")
-    logger.info("  python -m src.rt_evade rust-crypter samples/out.bin --output encrypted.exe")
+    logger.info("  python -m rt_evade rust-crypter samples/out.bin --output encrypted.exe")
     
     return 0
 

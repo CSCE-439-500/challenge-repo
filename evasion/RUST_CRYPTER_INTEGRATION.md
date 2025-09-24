@@ -55,24 +55,24 @@ export REDTEAM_MODE=true
 export ALLOW_ACTIONS=true
 
 # Encrypt a PE file and generate stub
-python -m src.rt_evade rust-crypter samples/out.bin
+python -m rt_evade rust-crypter samples/out.bin
 ```
 
 #### Advanced Usage
 ```bash
 # Custom output path and configuration
-python -m src.rt_evade rust-crypter samples/out.bin \
+python -m rt_evade rust-crypter samples/out.bin \
     --output encrypted_payload.exe \
     --target-arch x86_64-pc-windows-gnu \
     --build-mode release \
     --rust-crypter-path /path/to/Rust-Crypter
 
 # Disable anti-VM features
-python -m src.rt_evade rust-crypter samples/out.bin \
+python -m rt_evade rust-crypter samples/out.bin \
     --no-anti-vm
 
 # Set custom file size limit
-python -m src.rt_evade rust-crypter samples/out.bin \
+python -m rt_evade rust-crypter samples/out.bin \
     --max-file-size 10485760  # 10MB
 ```
 
@@ -188,14 +188,14 @@ Input PE File
 ### Example 1: Basic Encryption
 ```bash
 # Encrypt a PE file
-python -m src.rt_evade rust-crypter samples/out.bin --output malware.exe
+python -m rt_evade rust-crypter samples/out.bin --output malware.exe
 ```
 
 ### Example 2: With PE Obfuscation
 ```bash
 # First apply PE obfuscation, then encrypt
-python -m src.rt_evade transform samples/out.bin --output obfuscated.exe
-python -m src.rt_evade rust-crypter obfuscated.exe --output final.exe
+python -m rt_evade transform samples/out.bin --output obfuscated.exe
+python -m rt_evade rust-crypter obfuscated.exe --output final.exe
 ```
 
 ### Example 3: Custom Configuration
@@ -253,7 +253,7 @@ Enable debug mode for more verbose output:
 
 ```bash
 export LOG_LEVEL=DEBUG
-python -m src.rt_evade rust-crypter samples/out.bin
+python -m rt_evade rust-crypter samples/out.bin
 ```
 
 ## Security Considerations

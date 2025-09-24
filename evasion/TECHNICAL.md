@@ -309,16 +309,16 @@ Input PE File
 ### **Usage Examples**
 ```bash
 # Basic usage
-python -m src.rt_evade rust-crypter samples/out.bin
+python -m rt_evade rust-crypter samples/out.bin
 
 # With custom output and configuration
-python -m src.rt_evade rust-crypter samples/out.bin \
+python -m rt_evade rust-crypter samples/out.bin \
     --output encrypted_payload.exe \
     --target-arch x86_64-pc-windows-gnu \
     --build-mode release
 
 # With custom Rust-Crypter path
-python -m src.rt_evade rust-crypter samples/out.bin \
+python -m rt_evade rust-crypter samples/out.bin \
     --rust-crypter-path /path/to/Rust-Crypter
 ```
 
