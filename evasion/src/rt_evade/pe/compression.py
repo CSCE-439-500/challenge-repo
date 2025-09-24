@@ -147,27 +147,31 @@ class PECompressor:
             )
             return pe_data
 
-        # Create temp input and output files
+        # Create temp input file and prepare a unique (non-existent) output path
         input_tmp = None
-        output_tmp = None
+        output_path = None
         try:
             input_tmp = tempfile.NamedTemporaryFile(
                 prefix="rt_upx_in_", suffix=".exe", delete=False
             )
-            output_tmp = tempfile.NamedTemporaryFile(
-                prefix="rt_upx_out_", suffix=".exe", delete=False
-            )
             input_path = input_tmp.name
-            output_path = output_tmp.name
+            # Get a unique path for output without creating the file so UPX can create it
+            fd, tmp_out_path = tempfile.mkstemp(prefix="rt_upx_out_", suffix=".exe")
+            os.close(fd)
+            # Remove the file so that UPX does not fail with FileAlreadyExistsException
+            os.unlink(tmp_out_path)
+            output_path = tmp_out_path
             input_tmp.write(pe_data)
             input_tmp.flush()
             input_tmp.close()
-            output_tmp.close()
 
             # Build the UPX command: upx [args] -o output input
             args = [self.config.packer_name]
             if self.config.packer_args:
                 args.extend(self.config.packer_args)
+            # Ensure we force overwrite just in case a file appears at the path
+            if "-f" not in args and "--force" not in args:
+                args.append("-f")
             args.extend(["-o", output_path, input_path])
 
             logger.info("action=packer_start packer=upx cmd=%s", " ".join(args))
@@ -208,7 +212,7 @@ class PECompressor:
             # Cleanup temp files
             for tmp in (
                 input_tmp.name if input_tmp else None,
-                output_tmp.name if output_tmp else None,
+                output_path,
             ):
                 if tmp and os.path.exists(tmp):
                     try:
