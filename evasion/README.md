@@ -8,6 +8,8 @@
 
 ## 🚀 Quick Start
 
+### Local Installation
+
 ```bash
 # Show all available targets
 make help
@@ -30,6 +32,25 @@ make test-compression
 make test-encryption
 make test-strings
 make test-sections
+```
+
+### Docker Usage
+
+```bash
+# Build the Docker image
+docker build -t pe-evasion .
+
+# Process a single file
+docker run -v /path/to/input:/input -v /path/to/output:/output pe-evasion --input /input/payload.exe
+
+# Process a directory of files
+docker run -v /path/to/samples:/input -v /path/to/output:/output pe-evasion --input /input
+
+# Custom output directory
+docker run -v /path/to/samples:/input -v /path/to/output:/output pe-evasion --input /input --output-dir /output/obfuscated
+
+# Show help
+docker run pe-evasion --help
 ```
 
 ## 🏗️ Modular Architecture
@@ -242,3 +263,77 @@ make batch-obfuscate INPUT_DIR=samples/ LOG_LEVEL=DEBUG
 - Provides detailed logging of success/failure counts
 
 The output PE files are obfuscated at rest and will not run directly; execute them via the dropper which decodes in-memory to a temporary executable.
+
+## 🐳 Docker Deployment
+
+The toolkit is containerized for easy deployment and consistent execution across different environments.
+
+### Building the Image
+
+```bash
+# Build the Docker image
+docker build -t pe-evasion .
+
+# Build with custom tag
+docker build -t my-org/pe-evasion:latest .
+```
+
+### Running the Container
+
+#### Single File Processing
+
+```bash
+# Process a single PE file
+docker run -v /host/input:/input -v /host/output:/output pe-evasion --input /input/payload.exe
+
+# With custom output directory
+docker run -v /host/input:/input -v /host/output:/output pe-evasion \
+    --input /input/payload.exe --output-dir /output/obfuscated
+```
+
+#### Batch Directory Processing
+
+```bash
+# Process all binaries in a directory
+docker run -v /host/samples:/input -v /host/output:/output pe-evasion --input /input
+
+# With verbose logging
+docker run -v /host/samples:/input -v /host/output:/output pe-evasion \
+    --input /input --log-level DEBUG
+```
+
+#### Advanced Usage
+
+```bash
+# Interactive mode (for debugging)
+docker run -it -v /host/input:/input -v /host/output:/output pe-evasion bash
+
+# Run with custom environment variables
+docker run -e LOG_LEVEL=DEBUG -v /host/input:/input -v /host/output:/output pe-evasion --input /input
+
+# Mount multiple directories
+docker run -v /host/samples:/input -v /host/output:/output -v /host/config:/config pe-evasion --input /input
+```
+
+### Docker Features
+
+- **Ubuntu 22.04 Base**: Stable, secure foundation
+- **Automatic Detection**: Intelligently processes files or directories
+- **Volume Mounting**: Easy input/output file management
+- **Environment Variables**: Configurable logging and behavior
+- **Help System**: Built-in usage instructions
+- **Error Handling**: Graceful failure with informative messages
+
+### Volume Mounting
+
+The container uses volume mounts to access host files:
+
+- **Input Volume**: Mount your input files/directories to `/input`
+- **Output Volume**: Mount your desired output directory to `/output`
+- **Internal Paths**: Use `/input` and `/output` paths inside the container
+
+### Environment Variables
+
+- `REDTEAM_MODE=true` (pre-set in container)
+- `ALLOW_ACTIONS=true` (pre-set in container)
+- `LOG_LEVEL` - Override logging level (DEBUG, INFO, WARNING, ERROR)
