@@ -58,10 +58,11 @@ This is the core of the pipeline where multiple techniques are applied to change
 
 | **Enhancement Modules** | **Details** |
 | --- | --- |
+| **Packer** | Utilizes the popular UPX packer but adds anti-analysis guards to prevent it from being easily unpacked by security tools. |
 | **Compression** | Reduces file size and hinders static analysis by packing the code using algorithms like zlib or gzip.       |
 | **Encryption** | Encrypts the file's content using methods like XOR encoding, requiring a key to decrypt at runtime.          |
 | **Static Evasion** | Cleans up metadata and removes signatures that security tools might flag, such as compiler information.     |
-| **Detection Mitigation** | **** Implements anti-analysis measures like monitoring file size changes, optimizing code sections, and generating benign timestamps. |
+| **Detection Mitigation** | Implements anti-analysis measures like monitoring file size changes, optimizing code sections, and generating benign timestamps. |
 
 ---
 
