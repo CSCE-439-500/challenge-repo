@@ -21,11 +21,15 @@ make run INPUT=path/to/payload.exe
 # UPX packing is ON by default via Make; disable with UPX=0
 make run-pe INPUT=path/to/payload.exe OUTPUT=out/obfuscated.exe
 
+# Rust-Crypter encryption: PE obfuscation + advanced encryption
+make run-crypt INPUT=path/to/payload.exe OUTPUT=out/encrypted.exe
+
 # One-shot: embed + bundle to standalone dropper
 make single INPUT=path/to/payload.exe DECODE_KEY=mykey
 
 # Batch obfuscation: process all binaries in a folder
 make batch-obfuscate INPUT_DIR=samples/ OUTPUT_DIR=out/
+make batch-crypt INPUT_DIR=samples/ OUTPUT_DIR=out/  # With Rust-Crypter
 make batch-dry-run INPUT_DIR=samples/  # Preview what would be processed
 
 # Test individual modules
@@ -33,6 +37,7 @@ make test-compression
 make test-encryption
 make test-strings
 make test-sections
+make test-rust-crypter  # Test Rust-Crypter integration
 ```
 
 ### Docker Usage
@@ -84,9 +89,11 @@ docker run pe-evasion --help
 ### Main Obfuscation Targets
 - `make run` - Basic PE obfuscation (mimicry + strings + imports)
 - `make run-pe` - Full PE obfuscation (all modules enabled)
+- `make run-crypt` - PE obfuscation + Rust-Crypter encryption
 - `make dry-run` - Show obfuscation plan without file writes
 - `make single` - One-shot: embed + bundle to standalone dropper
 - `make batch-obfuscate` - Obfuscate all binaries in a folder
+- `make batch-crypt` - Obfuscate + Rust-Crypter encrypt all binaries in a folder
 - `make batch-dry-run` - Show what would be obfuscated without doing it
 
 ### Specialized Module Testing
@@ -95,9 +102,10 @@ docker run pe-evasion --help
 - `make test-encryption` - Test encryption module only
 - `make test-strings` - Test string obfuscation module only
 - `make test-sections` - Test section manipulation module only
+- `make test-rust-crypter` - Test Rust-Crypter integration module only
 
 ### Utility Targets
-- `make test` - Run all tests (134 tests)
+- `make test` - Run all tests (153 tests)
 - `make dropper` - Execute obfuscated PE via dropper
 - `make embed` - Embed PE into Python module
 - `make bundle` - Create standalone executable
@@ -148,11 +156,12 @@ make test LOG_LEVEL=DEBUG
 ```
 
 **Test Coverage:**
-- ✅ **134 tests passing**
+- ✅ **153 tests passing** (including Rust-Crypter integration)
 - ✅ **Modular test structure** with focused test files
 - ✅ **Integration tests** for end-to-end workflows
 - ✅ **Unit tests** for each specialized module
 - ✅ **Configuration validation** for all modules
+- ✅ **Rust-Crypter integration tests** for advanced encryption workflows
 
 ## 🎯 Single-Binary Workflow
 
@@ -188,6 +197,77 @@ make batch-obfuscate INPUT_DIR=samples/ LOG_LEVEL=DEBUG
 - Provides detailed logging of success/failure counts
 
 The output PE files are obfuscated at rest and will not run directly; execute them via the dropper which decodes in-memory to a temporary executable.
+
+## 🔐 Rust-Crypter Advanced Encryption Workflow
+
+The Rust-Crypter integration provides advanced PE encryption with in-memory execution capabilities:
+
+### **Single File Processing**
+
+```bash
+# Basic Rust-Crypter encryption
+make run-crypt INPUT=payload.exe OUTPUT=encrypted.exe
+
+# With custom configuration
+python -m src transform payload.exe \
+  --pe-rust-crypter \
+  --target-arch x86_64-pc-windows-gnu \
+  --build-mode release \
+  --output encrypted.exe
+
+# With anti-VM disabled
+python -m src transform payload.exe \
+  --pe-rust-crypter \
+  --no-anti-vm \
+  --output encrypted.exe
+```
+
+### **Batch Processing with Rust-Crypter**
+
+```bash
+# Process all binaries in a folder with Rust-Crypter
+make batch-crypt INPUT_DIR=samples/ OUTPUT_DIR=encrypted_binaries/
+
+# Preview what would be processed
+make batch-crypt INPUT_DIR=samples/ --dry-run
+
+# Custom output directory
+make batch-crypt INPUT_DIR=my_binaries/ OUTPUT_DIR=encrypted_output/
+
+# Process with verbose logging
+make batch-crypt INPUT_DIR=samples/ LOG_LEVEL=DEBUG
+```
+
+### **Rust-Crypter Workflow**
+
+The Rust-Crypter integration follows a two-stage process:
+
+1. **Stage 1: PE Obfuscation**
+   - Applies standard PE obfuscation techniques
+   - Mimicry, string obfuscation, import manipulation
+   - Section padding, code encryption, static evasion
+   - **Note**: Packing and compression are automatically disabled
+
+2. **Stage 2: Advanced Encryption**
+   - Encrypts the obfuscated PE using Rust-Crypter
+   - Generates a decryption stub with embedded payload
+   - Creates executable with in-memory decryption capabilities
+   - Includes anti-VM detection features
+
+### **Rust-Crypter Features**
+
+- **In-Memory Execution**: Payload never written to disk in decrypted form
+- **Anti-VM Detection**: Built-in virtual machine detection
+- **Architecture Support**: Both x86 and x64 Windows targets
+- **Automatic Compilation**: Handles Rust compilation and linking
+- **Size Optimization**: Efficient stub generation
+- **Batch Processing**: Full support for directory-based processing
+
+### **Environment Variables**
+
+- `RUST_CRYPTER_PATH` - Path to Rust-Crypter directory (set automatically by Makefile)
+- `REDTEAM_MODE=true` - Required to enable toolkit
+- `ALLOW_ACTIONS=true` - Required for file writes
 
 ## 🐳 Docker Deployment
 
