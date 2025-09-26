@@ -3,3 +3,5 @@ venv/
 out/
 build/
 tasks/
+rust-crypter/
+.env

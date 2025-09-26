@@ -15,6 +15,7 @@ from .rt_evade.core.pipeline import TransformPipeline
 from .rt_evade.core.transform import TransformPlan
 from .rt_evade.dropper.embed import generate_embedded_payload_module
 from .rt_evade.dropper.cli import main as dropper_main
+from .rt_evade.dropper.rust_crypter import RustCrypterIntegration, RustCrypterConfig
 from .rt_evade.pe.obfuscator import PEObfuscator, PEObfuscationConfig
 from .rt_evade.pe.packer import PackerConfig
 
@@ -63,15 +64,23 @@ def build_default_plan(args: argparse.Namespace) -> List[TransformPlan]:
     """
     plans: List[TransformPlan] = []
     if args.pe_obfuscate:
+        # When Rust-Crypter is enabled, disable packing and compression
+        if getattr(args, 'pe_rust_crypter', False):
+            enable_compression = False
+            enable_packer = False
+        else:
+            enable_compression = args.pe_compression
+            enable_packer = args.pe_packer
+            
         config = PEObfuscationConfig(
             enable_mimicry=args.pe_mimicry,
             enable_string_obfuscation=args.pe_strings,
             enable_import_inflation=args.pe_imports,
             enable_section_padding=args.pe_padding,
-            enable_compression=args.pe_compression,
+            enable_compression=enable_compression,
             enable_code_encryption=args.pe_encryption,
             target_category=args.pe_category,
-            packer_config=PackerConfig(enable_packer=args.pe_packer),
+            packer_config=PackerConfig(enable_packer=enable_packer),
         )
         obfuscator = PEObfuscator(config)
         plans.append(
@@ -145,6 +154,33 @@ def _setup_transform_parser(subparsers) -> argparse.ArgumentParser:
         choices=["system_utility", "web_browser", "office_app"],
         help="Target software category for mimicry",
     )
+    parser.add_argument(
+        "--pe-rust-crypter",
+        action="store_true",
+        default=False,
+        help="Enable Rust-Crypter encryption (disables packing and compression)",
+    )
+    parser.add_argument(
+        "--rust-crypter-path",
+        help="Path to Rust-Crypter directory (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--target-arch",
+        choices=["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"],
+        default="x86_64-pc-windows-gnu",
+        help="Rust target architecture (default: x86_64-pc-windows-gnu)"
+    )
+    parser.add_argument(
+        "--build-mode",
+        choices=["release", "debug"],
+        default="release",
+        help="Build mode for stub compilation (default: release)"
+    )
+    parser.add_argument(
+        "--no-anti-vm",
+        action="store_true",
+        help="Disable anti-VM features in stub"
+    )
     return parser
 
 
@@ -181,6 +217,45 @@ def _setup_embed_parser(subparsers) -> argparse.ArgumentParser:
         "--xor-pack",
         action="store_true",
         help="Apply XOR packing (requires DECODE_KEY)",
+    )
+    return parser
+
+
+def _setup_rust_crypter_parser(subparsers) -> argparse.ArgumentParser:
+    """Set up the rust-crypter subcommand parser."""
+    parser = subparsers.add_parser(
+        "rust-crypter", help="Encrypt PE file using Rust-Crypter and generate in-memory execution stub"
+    )
+    parser.add_argument("input", help="Path to input PE file")
+    parser.add_argument(
+        "--output", help="Output stub executable path (default: auto-generated)"
+    )
+    parser.add_argument(
+        "--rust-crypter-path",
+        help="Path to Rust-Crypter directory (default: auto-detect)"
+    )
+    parser.add_argument(
+        "--target-arch",
+        choices=["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"],
+        default="x86_64-pc-windows-gnu",
+        help="Rust target architecture (default: x86_64-pc-windows-gnu)"
+    )
+    parser.add_argument(
+        "--build-mode",
+        choices=["release", "debug"],
+        default="release",
+        help="Build mode for stub compilation (default: release)"
+    )
+    parser.add_argument(
+        "--no-anti-vm",
+        action="store_true",
+        help="Disable anti-VM features in stub"
+    )
+    parser.add_argument(
+        "--max-file-size",
+        type=int,
+        default=5 * 1024 * 1024,
+        help="Maximum file size in bytes (default: 5MB)"
     )
     return parser
 
@@ -226,28 +301,111 @@ def _handle_embed_command(args) -> int:
     return 0
 
 
+def _handle_rust_crypter_command(args) -> int:
+    """Handle the rust-crypter subcommand."""
+    original = load_bytes_from_file(args.input)
+    
+    # Create Rust-Crypter configuration
+    config = RustCrypterConfig(
+        rust_crypter_path=args.rust_crypter_path,
+        target_architecture=args.target_arch,
+        build_mode=args.build_mode,
+        anti_vm=not args.no_anti_vm,
+        max_file_size=args.max_file_size,
+    )
+    
+    # Initialize Rust-Crypter integration
+    rust_crypter = RustCrypterIntegration(config)
+    
+    # Determine output path
+    output_path = None
+    if args.output:
+        output_path = Path(args.output)
+    
+    # Create encrypted payload with stub
+    stub_path = rust_crypter.create_encrypted_payload(original, output_path)
+    
+    # Generate report
+    report = rust_crypter.get_encryption_report(original, b"", stub_path)
+    
+    logging.info(
+        "action=rust_crypter_complete "
+        "stub_path=%s original_size=%d stub_size=%d compression_ratio=%.2f%%",
+        stub_path,
+        report["original_size"],
+        report["stub_size"],
+        report["compression_ratio"]
+    )
+    
+    return 0
+
+
 def _handle_transform_command(args) -> int:
     """Handle the transform subcommand."""
     original = load_bytes_from_file(args.input)
 
-    pipeline = TransformPipeline()
-    for plan in build_default_plan(args):
-        pipeline.add(plan)
-
-    transformed = pipeline.apply_all(original)
-
-    if getattr(args, "output", None):
-        write_bytes_to_file(args.output, transformed)
-        logging.info(
-            "action=write_output path=%s size=%d", args.output, len(transformed)
+    # Check if Rust-Crypter is enabled
+    if getattr(args, 'pe_rust_crypter', False):
+        # Apply obfuscation first (no packing/compression)
+        pipeline = TransformPipeline()
+        for plan in build_default_plan(args):
+            pipeline.add(plan)
+        
+        obfuscated = pipeline.apply_all(original)
+        
+        # Then apply Rust-Crypter encryption
+        config = RustCrypterConfig(
+            rust_crypter_path=getattr(args, 'rust_crypter_path', None),
+            target_architecture=getattr(args, 'target_arch', 'x86_64-pc-windows-gnu'),
+            build_mode=getattr(args, 'build_mode', 'release'),
+            anti_vm=not getattr(args, 'no_anti_vm', False),
+            max_file_size=5 * 1024 * 1024,  # 5MB default
         )
+        
+        rust_crypter = RustCrypterIntegration(config)
+        
+        # Determine output path
+        output_path = None
+        if getattr(args, "output", None):
+            output_path = Path(args.output)
+        
+        # Create encrypted payload with stub
+        stub_path = rust_crypter.create_encrypted_payload(obfuscated, output_path)
+        
+        # Generate report
+        report = rust_crypter.get_encryption_report(original, obfuscated, stub_path)
+        
+        logging.info(
+            "action=rust_crypter_transform_complete "
+            "stub_path=%s original_size=%d encrypted_size=%d stub_size=%d compression_ratio=%.2f%%",
+            stub_path,
+            report["original_size"],
+            report["encrypted_size"],
+            report["stub_size"],
+            report["compression_ratio"]
+        )
+        
+        return 0
     else:
-        logging.info(
-            "action=dry_run size=%d note=use --output and ALLOW_ACTIONS=true to write",
-            len(transformed),
-        )
+        # Standard transform pipeline
+        pipeline = TransformPipeline()
+        for plan in build_default_plan(args):
+            pipeline.add(plan)
 
-    return 0
+        transformed = pipeline.apply_all(original)
+
+        if getattr(args, "output", None):
+            write_bytes_to_file(args.output, transformed)
+            logging.info(
+                "action=write_output path=%s size=%d", args.output, len(transformed)
+            )
+        else:
+            logging.info(
+                "action=dry_run size=%d note=use --output and ALLOW_ACTIONS=true to write",
+                len(transformed),
+            )
+
+        return 0
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -269,6 +427,7 @@ def main(argv: List[str] | None = None) -> int:
     _setup_transform_parser(sub)
     _setup_dropper_parser(sub)
     _setup_embed_parser(sub)
+    _setup_rust_crypter_parser(sub)
 
     parser.add_argument(
         "--output", help="Optional output path (requires ALLOW_ACTIONS=true)"
@@ -282,6 +441,9 @@ def main(argv: List[str] | None = None) -> int:
 
     if args.cmd == "embed":
         return _handle_embed_command(args)
+
+    if args.cmd == "rust-crypter":
+        return _handle_rust_crypter_command(args)
 
     # Default: transform
     if args.cmd != "transform":
@@ -302,6 +464,19 @@ def main(argv: List[str] | None = None) -> int:
         parser.add_argument(
             "--pe-category", choices=["system_utility", "web_browser", "office_app"]
         )
+        parser.add_argument("--pe-rust-crypter", action="store_true", default=False)
+        parser.add_argument("--rust-crypter-path", help="Path to Rust-Crypter directory")
+        parser.add_argument(
+            "--target-arch",
+            choices=["x86_64-pc-windows-gnu", "i686-pc-windows-gnu"],
+            default="x86_64-pc-windows-gnu"
+        )
+        parser.add_argument(
+            "--build-mode",
+            choices=["release", "debug"],
+            default="release"
+        )
+        parser.add_argument("--no-anti-vm", action="store_true")
         args = parser.parse_args(argv or [])
     return _handle_transform_command(args)
 

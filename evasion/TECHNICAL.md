@@ -31,6 +31,7 @@ The toolkit has been refactored into specialized, focused modules for better mai
 ### Dropper Modules (`rt_evade.dropper`)
 - **`embed.py`**: Embed obfuscated PE into Python module
 - **`standalone.py`**: Runtime decode helpers for in-memory reversal
+- **`rust_crypter.py`**: Rust-Crypter integration for advanced encryption and in-memory execution
 
 ## 🔄 PE Obfuscation Pipeline
 
@@ -61,6 +62,7 @@ This is the core of the pipeline where multiple techniques are applied to change
 | **Packer** | Utilizes the popular UPX packer but adds anti-analysis guards to prevent it from being easily unpacked by security tools. |
 | **Compression** | Reduces file size and hinders static analysis by packing the code using algorithms like zlib or gzip.       |
 | **Encryption** | Encrypts the file's content using methods like XOR encoding, requiring a key to decrypt at runtime.          |
+| **Rust-Crypter Integration** | Advanced encryption using Rust-Crypter tool with in-memory execution stubs powered by memexec. **When enabled, disables packing and compression for optimal workflow.** |
 | **Static Evasion** | Cleans up metadata and removes signatures that security tools might flag, such as compiler information.     |
 | **Detection Mitigation** | Implements anti-analysis measures like monitoring file size changes, optimizing code sections, and generating benign timestamps. |
 
@@ -130,6 +132,13 @@ The final obfuscated PE file is ready for deployment. The choice of execution me
 - File size monitoring and optimization
 - Section name optimization
 - Benign timestamp generation
+
+### Rust-Crypter Integration
+- Advanced PE encryption using Rust-Crypter tool
+- In-memory execution stubs powered by memexec
+- Anti-VM detection capabilities
+- Support for x86 and x64 architectures
+- Automatic stub compilation and deployment
 
 ## 📦 Batch Processing Architecture
 
@@ -247,6 +256,142 @@ rt_evade/
     ├── test_pe_section_manipulation.py
     └── ...
 ```
+
+## 🔧 Rust-Crypter Integration Workflow
+
+The Rust-Crypter integration provides advanced PE encryption and in-memory execution capabilities:
+
+### **Setup Process**
+1. **Rust Installation**: Ensure Rust toolchain is installed
+2. **Target Installation**: Install Windows targets (x86_64-pc-windows-gnu, i686-pc-windows-gnu)
+3. **Rust-Crypter Setup**: Clone and configure Rust-Crypter repository
+4. **Environment Configuration**: Set RUST_CRYPTER_PATH environment variable
+
+### **Encryption Workflow**
+```
+Input PE File
+       │
+       ▼
+┌─────────────────┐
+│  PE Validation  │ ◄── Check file size, format, architecture
+│  (Size/Format)  │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Rust-Crypter   │ ◄── Encrypt PE using Rust-Crypter
+│  Encryption     │     • Generate encrypted_bytes.bin
+│                 │     • Generate key.txt
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Stub Generation│ ◄── Create decryption stub
+│  (Rust Compile) │     • Embed encrypted payload
+│                 │     • Add memexec runtime
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Final Stub     │ ◄── Compiled executable
+│  (Executable)   │     • In-memory decryption
+│                 │     • Anti-VM features
+└─────────────────┘
+```
+
+### **Key Features**
+- **In-Memory Execution**: Payload never written to disk in decrypted form
+- **Anti-VM Detection**: Built-in virtual machine detection
+- **Architecture Support**: Both x86 and x64 Windows targets
+- **Automatic Compilation**: Handles Rust compilation and linking
+- **Size Optimization**: Efficient stub generation
+
+### **Usage Examples**
+```bash
+# Basic usage
+python -m rt_evade rust-crypter samples/out.bin
+
+# With custom output and configuration
+python -m rt_evade rust-crypter samples/out.bin \
+    --output encrypted_payload.exe \
+    --target-arch x86_64-pc-windows-gnu \
+    --build-mode release
+
+# With custom Rust-Crypter path
+python -m rt_evade rust-crypter samples/out.bin \
+    --rust-crypter-path /path/to/Rust-Crypter
+```
+
+## 🔄 Rust-Crypter Pipeline Integration
+
+The Rust-Crypter integration is seamlessly integrated into the main transform pipeline, providing a two-stage workflow:
+
+### **Stage 1: PE Obfuscation**
+When `--pe-rust-crypter` is enabled, the pipeline applies standard PE obfuscation techniques:
+- **Mimicry**: Template matching and characteristic copying
+- **String Obfuscation**: Base64 encoding of suspicious strings
+- **Import Manipulation**: Fake imports and dead code injection
+- **Section Padding**: Junk data and entropy increase
+- **Code Encryption**: XOR encryption of code sections
+- **Static Evasion**: Metadata cleaning and signature removal
+- **Detection Mitigation**: File size monitoring and timestamp optimization
+
+**Note**: Packing and compression are automatically disabled when Rust-Crypter is enabled to ensure optimal workflow.
+
+### **Stage 2: Rust-Crypter Encryption**
+After obfuscation, the pipeline applies advanced encryption:
+- **PE File Encryption**: Uses Rust-Crypter to encrypt the obfuscated PE
+- **Stub Generation**: Creates a decryption stub with embedded payload
+- **In-Memory Execution**: Stub uses memexec for runtime decryption
+- **Anti-VM Features**: Built-in virtual machine detection
+- **Architecture Support**: Both x86 and x64 Windows targets
+
+### **Pipeline Workflow Diagram**
+```
+Input PE File
+       │
+       ▼
+┌─────────────────┐
+│  PE Obfuscation │ ◄── Stage 1: Standard obfuscation
+│  (No Packing/   │     • Mimicry, strings, imports
+│   Compression)  │     • Section padding, encryption
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Rust-Crypter   │ ◄── Stage 2: Advanced encryption
+│  Encryption     │     • Encrypt obfuscated PE
+│  + Stub Gen     │     • Generate in-memory stub
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Final Stub     │ ◄── Executable with embedded payload
+│  (Executable)   │     • In-memory decryption
+│                 │     • Anti-VM features
+└─────────────────┘
+```
+
+### **Batch Processing Support**
+The Rust-Crypter integration supports batch processing for multiple files:
+
+```bash
+# Batch obfuscation with Rust-Crypter
+make batch-crypt INPUT_DIR=samples/
+
+# Preview batch processing
+make batch-crypt INPUT_DIR=samples/ --dry-run
+
+# Custom output directory
+make batch-crypt INPUT_DIR=samples/ OUTPUT_DIR=encrypted_binaries/
+```
+
+**Batch Processing Features:**
+- **Automatic File Detection**: Finds all binary files in input directory
+- **Preserved Filenames**: `samples/1` → `out/1`, `samples/payload.exe` → `out/payload.exe`
+- **Parallel Processing**: Each file processed independently
+- **Error Handling**: Continues processing even if individual files fail
+- **Comprehensive Logging**: Detailed success/failure reporting
 
 ## 🎯 Key Design Principles
 
