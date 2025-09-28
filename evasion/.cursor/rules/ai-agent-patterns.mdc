@@ -1,0 +1,230 @@
+---
+globs: src/obfuscation_agent/*.py
+description: AI Agent Code Patterns and Best Practices
+---
+
+# AI Agent Code Patterns & Best Practices
+
+This rule explains the specific code patterns and architectural decisions used in the AI obfuscation agent.
+
+## 🏗️ Core Architecture Patterns
+
+### 1. Agent Class Structure
+```python
+class ObfuscationAgent(Agent):
+    def __init__(self, output_dir: str = None, **kwargs):
+        # Initialize AI model with environment variable
+        api_key = os.getenv("GEMINI_API_KEY")
+        kwargs.setdefault("model", Gemini(id="gemini-2.5-flash", api_key=api_key))
+        super().__init__(**kwargs)
+
+        # Learning state
+        self.technique_effectiveness = {}
+        self.action_outcomes = []
+        self.advanced_techniques_used = {"rust_crypter": False, "upx_packing": False}
+```
+
+**Key Pattern**: Use `kwargs.setdefault()` for clean initialization with fallbacks.
+
+### 2. AI Decision Making with Fallback
+```python
+def ai_decide_next_action(self) -> str:
+    try:
+        if self.model.api_key and self.model.api_key != "dummy-key":
+            # Use AI model
+            messages = [Message(role="user", content=prompt)]
+            response = self.model.response(messages)
+            action = response.content.strip().lower()
+
+            if action in valid_actions:
+                return action
+        else:
+            logger.info("No valid API key, using intelligent heuristics")
+
+        # Fallback to heuristics
+        return self._intelligent_heuristic_decision()
+
+    except Exception as e:
+        logger.error(f"Error in AI decision making: {e}, falling back to random selection")
+        return random.choice(valid_actions)
+```
+
+**Key Pattern**: Always have fallback logic when using external AI services.
+
+### 3. Learning State Management
+```python
+def update_technique_effectiveness(self, technique: str, success: bool):
+    """Track which techniques work best"""
+    if technique not in self.technique_effectiveness:
+        self.technique_effectiveness[technique] = {"successes": 0, "attempts": 0}
+
+    self.technique_effectiveness[technique]["attempts"] += 1
+    if success:
+        self.technique_effectiveness[technique]["successes"] += 1
+```
+
+**Key Pattern**: Track effectiveness to enable learning and better decisions.
+
+### 4. Checkpoint System for Error Recovery
+```python
+def run_obfuscation_loop(self, initial_binary_path: str, max_attempts: int = 10):
+    while not evaded and self.attempt_count < max_attempts:
+        # Save checkpoint before modification
+        try:
+            checkpoint_path = save_checkpoint(self.current_binary_path, self.output_dir)
+        except Exception as e:
+            logger.info(f"Warning: Failed to save checkpoint: {e}")
+            checkpoint_path = None
+
+        try:
+            # Apply obfuscation technique
+            action = self.ai_decide_next_action()
+            obfuscated_binary_path = self._apply_technique(action, self.current_binary_path)
+
+            # Test evasion
+            evasion_result = self.test_evasion(obfuscated_binary_path)
+
+        except Exception as e:
+            # Revert on error
+            if checkpoint_path:
+                revert_to_checkpoint(self.current_binary_path, checkpoint_path)
+            logger.error(f"Error in obfuscation: {e}")
+            continue
+```
+
+**Key Pattern**: Save state before risky operations, revert on failure.
+
+## 🔧 File Organization Patterns
+
+### 1. Output Directory Structure
+```python
+def _copy_final_file(self, current_file: str, initial_file: str) -> str:
+    """Move final file to main output directory"""
+    if not self.output_dir:
+        return current_file
+
+    initial_name = os.path.basename(initial_file)
+    name, ext = os.path.splitext(initial_name)
+    final_path = os.path.join(self.output_dir, f"{name}{ext}")
+
+    shutil.copy2(current_file, final_path)
+    return final_path
+```
+
+**Key Pattern**: Clear separation of intermediate files vs final output.
+
+### 2. Intermediate File Management
+```python
+# In obfuscation_tools.py
+def add_junk_sections(filepath: str, output_dir: str = None) -> str:
+    # ... obfuscation logic ...
+
+    if output_dir:
+        # Save to intermediate files directory
+        intermediate_dir = os.path.join(output_dir, "intermediate-files")
+        os.makedirs(intermediate_dir, exist_ok=True)
+        filename = os.path.basename(filepath)
+        name, ext = os.path.splitext(filename)
+        new_path = os.path.join(intermediate_dir, f"{name}_junked{ext}")
+    else:
+        new_path = filepath.replace(".exe", "_junked.exe")
+```
+
+**Key Pattern**: All intermediate files go in `{output}/intermediate-files/`.
+
+## 🧪 Testing Patterns
+
+### 1. Mock External Dependencies
+```python
+@patch("obfuscation_agent.agent.Gemini")
+def test_ai_decide_next_action_success(self, mock_gemini, agent):
+    # Mock the AI model response
+    mock_model = Mock()
+    mock_response = Mock()
+    mock_response.content = "add_junk_sections"
+    mock_model.response.return_value = mock_response
+    agent.model = mock_model
+
+    action = agent.ai_decide_next_action()
+    assert action == "add_junk_sections"
+```
+
+**Key Pattern**: Mock external AI services for consistent, fast tests.
+
+### 2. Test Fallback Behavior
+```python
+def test_ai_decide_next_action_error_fallback(self, mock_gemini, agent):
+    # Mock the AI model to raise an exception
+    mock_model = Mock()
+    mock_model.response.side_effect = Exception("API Error")
+    agent.model = mock_model
+
+    # Should fall back to random selection
+    action = agent.ai_decide_next_action()
+    valid_actions = ["add_junk_sections", "rearrange_sections", "change_section_names", "change_timestamp"]
+    assert action in valid_actions
+```
+
+**Key Pattern**: Test both success and failure scenarios.
+
+## 🔒 Error Handling Patterns
+
+### 1. Graceful Degradation
+```python
+try:
+    # Try AI decision making
+    if self.model.api_key and self.model.api_key != "dummy-key":
+        return self._ai_decision()
+    else:
+        return self._heuristic_decision()
+except Exception as e:
+    logger.error(f"AI decision failed: {e}")
+    return self._random_decision()
+```
+
+**Key Pattern**: Multiple fallback levels ensure system always works.
+
+### 2. State Validation
+```python
+def _apply_technique(self, action: str, filepath: str) -> str:
+    # Validate the result
+    if not validate_pe_file(obfuscated_binary_path):
+        logger.warning(f"Obfuscation resulted in invalid PE file: {obfuscated_binary_path}")
+        return filepath  # Return original file
+
+    return obfuscated_binary_path
+```
+
+**Key Pattern**: Always validate results before proceeding.
+
+## 📝 Logging Patterns
+
+### 1. Structured Logging
+```python
+logger.info(f"AI decided next action: {action}")
+logger.info(f"Applied {action}. New binary: {obfuscated_binary_path}")
+logger.info(f"Evasion test result: {'EVADED' if evaded else 'DETECTED'}")
+```
+
+**Key Pattern**: Log key decision points for debugging and analysis.
+
+### 2. Context-Rich Error Messages
+```python
+except Exception as e:
+    logger.error(f"Error applying {action}: {e}")
+    logger.info(f"Reverting to checkpoint: {checkpoint_path}")
+```
+
+**Key Pattern**: Include context in error messages for easier debugging.
+
+## 🎯 Key Takeaways for Junior Devs
+
+1. **Always Have Fallbacks**: External services can fail, so build multiple fallback levels
+2. **Track State**: Learning systems need to remember what worked before
+3. **Save Checkpoints**: Risky operations should be reversible
+4. **Validate Results**: Don't trust external operations blindly
+5. **Mock Dependencies**: Tests should be fast and deterministic
+6. **Log Everything**: AI systems are hard to debug without good logging
+7. **Separate Concerns**: File management, AI decisions, and obfuscation are separate responsibilities
+
+This architecture demonstrates how to build robust, intelligent systems that can adapt and learn while maintaining reliability through proper error handling and state management.

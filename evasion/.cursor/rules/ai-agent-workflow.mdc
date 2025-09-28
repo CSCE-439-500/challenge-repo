@@ -1,0 +1,178 @@
+---
+alwaysApply: true
+description: AI Agent Workflow and Architecture Guide
+---
+
+# AI-Powered Obfuscation Agent Workflow
+
+This rule explains the autonomous obfuscation agent architecture and workflow for junior developers.
+
+## 🏗️ Architecture Overview
+
+The AI agent is built using the **Agno framework** with **Google Gemini** for intelligent decision-making. It's designed to autonomously obfuscate PE files until they evade ML detection.
+
+### Core Components
+
+- **[src/obfuscation_agent/agent.py](mdc:src/obfuscation_agent/agent.py)** - Main agent class with AI decision-making
+- **[src/obfuscation_agent/obfuscation_tools.py](mdc:src/obfuscation_agent/obfuscation_tools.py)** - PE manipulation functions
+- **[src/obfuscation_agent/evasion_model.py](mdc:src/obfuscation_agent/evasion_model.py)** - ML detection simulation
+- **[src/obfuscation_agent/state_manager.py](mdc:src/obfuscation_agent/state_manager.py)** - Checkpoint/revert system
+
+## 🤖 AI Agent Workflow
+
+### 1. Initialization
+```python
+# Agent loads Gemini model and sets up learning state
+agent = ObfuscationAgent(output_dir="out/1")
+# - Loads GEMINI_API_KEY from .env
+# - Initializes technique effectiveness tracking
+# - Sets up checkpoint system
+```
+
+### 2. Iterative Obfuscation Loop
+```python
+# For each attempt (up to max_attempts):
+while not evaded and attempt_count < max_attempts:
+    # 1. Save checkpoint for rollback
+    checkpoint = save_checkpoint(current_file, output_dir)
+
+    # 2. AI decides next action
+    action = agent.ai_decide_next_action()
+    # - Uses Gemini to analyze context
+    - Considers previous attempts and success rates
+    - Chooses from: add_junk_sections, rearrange_sections,
+      change_section_names, change_timestamp, rust_crypter, upx_packing
+
+    # 3. Apply obfuscation technique
+    new_file = agent.apply_technique(action, current_file)
+
+    # 4. Test against ML model
+    evaded = agent.test_evasion(new_file)
+
+    # 5. Learn from result
+    agent.update_technique_effectiveness(action, evaded)
+```
+
+### 3. AI Decision Making Process
+
+The agent uses **Google Gemini** to make intelligent decisions:
+
+```python
+def ai_decide_next_action(self) -> str:
+    # Build context for AI
+    context = {
+        "attempt_count": self.attempt_count,
+        "obfuscation_history": self.obfuscation_history,
+        "technique_effectiveness": self.technique_effectiveness,
+        "advanced_techniques_used": self.advanced_techniques_used,
+    }
+
+    # Create prompt for Gemini
+    prompt = f"""
+    You are an AI agent specialized in binary obfuscation for evasion.
+    Based on the current context, decide the next action to take.
+
+    Current Context:
+    - Attempt: {self.attempt_count}
+    - Previous actions: {', '.join(self.obfuscation_history)}
+    - Technique effectiveness: {json.dumps(self.technique_effectiveness)}
+
+    Available Actions:
+    1. Basic techniques: add_junk_sections, rearrange_sections,
+       change_section_names, change_timestamp
+    2. Advanced techniques: rust_crypter, upx_packing (use only once each)
+    3. Special actions: stop
+
+    Rules:
+    - If attempt_count >= 8 and no advanced techniques used, choose rust_crypter or upx_packing
+    - If both advanced techniques used, choose stop
+    - Prefer techniques with higher success rates
+    - Avoid repeating the same technique consecutively
+
+    Respond with ONLY the action name.
+    """
+
+    # Query Gemini API
+    messages = [Message(role="user", content=prompt)]
+    response = self.model.response(messages)
+    return response.content.strip().lower()
+```
+
+## 📁 File Organization
+
+### Output Structure
+```
+out/1/
+├── 1                                    # Final obfuscated file
+├── log.txt                             # Complete execution log
+├── intermediate-files/
+│   ├── 1_junked                        # Step 1: Added junk sections
+│   ├── 1_junked_rearranged             # Step 2: Rearranged sections
+│   └── 1_junked_timestamped            # Step 3: Changed timestamp
+└── checkpoints/
+    ├── 1_checkpoint_20250928_140146_439976
+    ├── 1_junked_checkpoint_20250928_140147_307259
+    └── ...
+```
+
+### Key Design Patterns
+
+1. **Checkpoint System**: Every obfuscation attempt is saved for potential rollback
+2. **Learning State**: Agent tracks which techniques work best
+3. **Fallback Logic**: If AI fails, falls back to intelligent heuristics
+4. **Error Recovery**: Reverts to last checkpoint on any error
+
+## 🔧 Environment Setup
+
+The agent requires these environment variables:
+
+```bash
+# .env file
+GEMINI_API_KEY=your_gemini_api_key_here
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+```
+
+## 🧪 Testing Strategy
+
+Tests use **mocked Gemini API calls** for consistency:
+
+```python
+@patch("obfuscation_agent.agent.Gemini")
+def test_ai_decide_next_action_success(self, mock_gemini, agent):
+    # Mock the AI model response
+    mock_model = Mock()
+    mock_response = Mock()
+    mock_response.content = "add_junk_sections"
+    mock_model.response.return_value = mock_response
+    agent.model = mock_model
+
+    action = agent.ai_decide_next_action()
+    assert action == "add_junk_sections"
+```
+
+## 🎯 Key Learning Points for Junior Devs
+
+1. **AI Integration**: The agent uses external AI (Gemini) for decision-making, not hardcoded logic
+2. **State Management**: Learning from previous attempts makes the agent smarter over time
+3. **Error Handling**: Checkpoint system ensures robustness - can always rollback
+4. **Modular Design**: Each obfuscation technique is a separate, testable function
+5. **Fallback Strategy**: If AI fails, intelligent heuristics ensure the system still works
+6. **File Organization**: Clear separation of intermediate files, checkpoints, and final output
+
+## 🚀 Usage
+
+```bash
+# Run the AI agent
+make agent INPUT=samples/1 OUTPUT=out/1
+
+# The agent will:
+# 1. Load the PE file
+# 2. Start iterative obfuscation
+# 3. Use AI to choose techniques
+# 4. Test each attempt against ML model
+# 5. Learn from results
+# 6. Continue until evasion or max attempts
+# 7. Save final result and complete log
+```
+
+This architecture demonstrates how to build intelligent, self-improving systems that can adapt and learn from experience while maintaining robustness through proper error handling and state management.
