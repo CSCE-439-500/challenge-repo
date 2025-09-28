@@ -33,6 +33,97 @@ The toolkit has been refactored into specialized, focused modules for better mai
 - **`standalone.py`**: Runtime decode helpers for in-memory reversal
 - **`rust_crypter.py`**: Rust-Crypter integration for advanced encryption and in-memory execution
 
+### Obfuscation Agent (`obfuscation_agent`)
+- **`agent.py`**: Agno-based autonomous obfuscation agent with ML evasion testing
+- **`obfuscation_tools.py`**: Core PE obfuscation functions (junk sections, section rearrangement, name changes, timestamps)
+- **`evasion_model.py`**: Placeholder ML classification model for testing evasion success
+- **`state_manager.py`**: Checkpoint and revert functionality for binary state management
+
+## 🤖 Autonomous Obfuscation Agent
+
+The toolkit includes an autonomous obfuscation agent that can automatically apply obfuscation techniques and test for ML evasion success. This agent is built using the Agno framework and provides intelligent, iterative obfuscation.
+
+### **Agent Architecture**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        AUTONOMOUS OBFUSCATION AGENT                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+Input PE File
+       │
+       ▼
+┌─────────────────┐
+│  Agent Init     │ ◄── Initialize ObfuscationAgent with Agno framework
+│  (Agno Agent)   │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Checkpoint     │ ◄── Save initial state for potential rollback
+│  Creation       │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        ITERATIVE OBFUSCATION LOOP                               │
+├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
+│   Attempt 1     │   Attempt 2     │   Attempt 3     │   ... Max Attempts      │
+│                 │                 │                 │                         │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Random Tool │ │ │ Random Tool │ │ │ Random Tool │ │ │ Random Tool         │ │
+│ │ Selection   │ │ │ Selection   │ │ │ Selection   │ │ │ Selection           │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Apply       │ │ │ Apply       │ │ │ Apply       │ │ │ Apply               │ │
+│ │ Obfuscation │ │ │ Obfuscation │ │ │ Obfuscation │ │ │ Obfuscation         │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Test        │ │ │ Test        │ │ │ Test        │ │ │ Test                │ │
+│ │ Evasion     │ │ │ Evasion     │ │ │ Evasion     │ │ │ Evasion             │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+└─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Success?       │ ◄── Check if ML model returns 0 (evaded)
+│  (ML Model)     │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Final Result   │ ◄── Return obfuscated file or revert on failure
+│  (Success/Fail) │
+└─────────────────┘
+```
+
+### **Agent Features**
+
+- **Autonomous Operation**: No manual intervention required
+- **Random Tool Selection**: Randomly selects from available obfuscation techniques
+- **ML Evasion Testing**: Tests each obfuscation attempt against a placeholder ML model
+- **Checkpoint Management**: Saves and reverts binary states for error recovery
+- **Iterative Approach**: Continues until evasion success or maximum attempts reached
+- **Error Handling**: Graceful failure with state rollback on errors
+
+### **Available Obfuscation Tools**
+
+| **Tool** | **Function** | **Description** |
+|----------|--------------|-----------------|
+| **Add Junk Sections** | `add_junk_sections()` | Adds random junk data sections to increase entropy |
+| **Rearrange Sections** | `rearrange_sections()` | Randomly reorders PE sections to confuse analysis |
+| **Change Section Names** | `change_section_names()` | Renames sections to appear more benign |
+| **Change Timestamp** | `change_timestamp()` | Modifies PE timestamp to avoid detection patterns |
+
+### **Evasion Model**
+
+The agent uses a placeholder ML classification model that simulates real-world static analysis:
+
+- **Random Decision**: Based on file size and entropy heuristics
+- **Entropy-Based**: Higher entropy files have better evasion chances
+- **Deterministic Mode**: Available for consistent testing results
+- **Return Values**: `0` = evaded (not detected), `1` = detected
+
 ## 🔄 PE Obfuscation Pipeline
 
 ### **1. Initial Analysis**
@@ -255,6 +346,13 @@ rt_evade/
     ├── test_pe_string_obfuscation.py
     ├── test_pe_section_manipulation.py
     └── ...
+
+src/
+└── obfuscation_agent/       # Autonomous obfuscation agent
+    ├── agent.py            # Agno-based autonomous agent
+    ├── obfuscation_tools.py # Core PE obfuscation functions
+    ├── evasion_model.py    # Placeholder ML classification model
+    └── state_manager.py    # Checkpoint and revert functionality
 ```
 
 ## 🔧 Rust-Crypter Integration Workflow

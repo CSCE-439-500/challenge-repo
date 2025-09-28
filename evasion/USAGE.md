@@ -21,6 +21,9 @@ make run INPUT=path/to/payload.exe
 # UPX packing is ON by default via Make; disable with UPX=0
 make run-pe INPUT=path/to/payload.exe OUTPUT=out/obfuscated.exe
 
+# Autonomous obfuscation agent with ML evasion testing
+make agent INPUT=path/to/payload.exe OUTPUT=out/agent_obfuscated.exe
+
 # Rust-Crypter encryption: PE obfuscation + advanced encryption
 make run-crypt INPUT=path/to/payload.exe OUTPUT=out/encrypted.exe
 
@@ -89,6 +92,7 @@ docker run pe-evasion --help
 ### Main Obfuscation Targets
 - `make run` - Basic PE obfuscation (mimicry + strings + imports)
 - `make run-pe` - Full PE obfuscation (all modules enabled)
+- `make agent` - Autonomous obfuscation agent with ML evasion testing
 - `make run-crypt` - PE obfuscation + Rust-Crypter encryption
 - `make dry-run` - Show obfuscation plan without file writes
 - `make single` - One-shot: embed + bundle to standalone dropper
@@ -136,12 +140,71 @@ docker run pe-evasion --help
 - `UPX=1` - Enable UPX packing by default in `run`, `run-pe`, `dry-run` (set `UPX=0` to disable)
 - `UPX_ARGS="--best --lzma"` - Extra flags for UPX
 
+## 🤖 Autonomous Obfuscation Agent
+
+The toolkit includes an autonomous obfuscation agent that uses AI to automatically apply obfuscation techniques and test for ML evasion success. The agent iteratively applies random obfuscation tools until it achieves evasion or reaches the maximum number of attempts.
+
+### **Agent Usage**
+
+```bash
+# Basic agent usage
+make agent INPUT=path/to/payload.exe
+
+# With custom output path
+make agent INPUT=path/to/payload.exe OUTPUT=out/agent_obfuscated.exe
+
+# With custom maximum attempts (default: 10)
+python main.py --input path/to/payload.exe --max-attempts 20
+
+# With custom output path
+python main.py --input path/to/payload.exe --output out/agent_result.exe
+```
+
+### **Agent Features**
+
+- **Autonomous Operation**: No manual intervention required
+- **Random Tool Selection**: Randomly selects from available obfuscation techniques
+- **ML Evasion Testing**: Tests each obfuscation attempt against a placeholder ML model
+- **Checkpoint Management**: Saves and reverts binary states for error recovery
+- **Iterative Approach**: Continues until evasion success or maximum attempts reached
+- **Error Handling**: Graceful failure with state rollback on errors
+
+### **Available Obfuscation Tools**
+
+| **Tool** | **Description** |
+|----------|-----------------|
+| **Add Junk Sections** | Adds random junk data sections to increase entropy |
+| **Rearrange Sections** | Randomly reorders PE sections to confuse analysis |
+| **Change Section Names** | Renames sections to appear more benign |
+| **Change Timestamp** | Modifies PE timestamp to avoid detection patterns |
+
+### **Evasion Model**
+
+The agent uses a placeholder ML classification model that simulates real-world static analysis:
+
+- **Random Decision**: Based on file size and entropy heuristics
+- **Entropy-Based**: Higher entropy files have better evasion chances
+- **Deterministic Mode**: Available for consistent testing results
+- **Return Values**: `0` = evaded (not detected), `1` = detected
+
+### **Agent Workflow**
+
+1. **Initialize**: Load PE file and create initial checkpoint
+2. **Iterate**: For each attempt (up to max_attempts):
+   - Randomly select an obfuscation tool
+   - Apply the obfuscation technique
+   - Test against ML evasion model
+   - If evaded (return 0), return success
+   - If not evaded, continue to next attempt
+3. **Error Handling**: If any error occurs, revert to last checkpoint
+4. **Result**: Return final obfuscated file or original file if all attempts failed
+
 ## 🧪 Testing
 
 The refactored codebase includes comprehensive test coverage:
 
 ```bash
-# Run all tests (134 tests)
+# Run all tests (202 tests)
 make test
 
 # Test individual modules
@@ -156,12 +219,13 @@ make test LOG_LEVEL=DEBUG
 ```
 
 **Test Coverage:**
-- ✅ **153 tests passing** (including Rust-Crypter integration)
+- ✅ **202 tests passing** (including Rust-Crypter integration and autonomous agent)
 - ✅ **Modular test structure** with focused test files
 - ✅ **Integration tests** for end-to-end workflows
 - ✅ **Unit tests** for each specialized module
 - ✅ **Configuration validation** for all modules
 - ✅ **Rust-Crypter integration tests** for advanced encryption workflows
+- ✅ **Autonomous agent tests** for AI-powered obfuscation workflows
 
 ## 🎯 Single-Binary Workflow
 

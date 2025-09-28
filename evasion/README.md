@@ -12,15 +12,17 @@ rt_evade is a specialized toolkit designed for **static ML evasion research**. I
 
 ### Key Features
 
+- **🤖 Autonomous Agent**: AI-powered obfuscation agent with ML evasion testing
 - **🔧 Modular Architecture**: Specialized components for different obfuscation techniques
 - **🛡️ PE Format Integrity**: Preserves Windows PE structure while obfuscating content
 - **🔒 Safety First**: ROE compliance with explicit environment variable controls
 - **📦 Batch Processing**: Process entire directories of binaries automatically
 - **🐳 Docker Support**: Containerized deployment for consistent execution
-- **🧪 Comprehensive Testing**: 134 tests covering all modules and workflows
+- **🧪 Comprehensive Testing**: 202 tests covering all modules and workflows
 
 ### Obfuscation Techniques
 
+- **🤖 Autonomous Agent**: AI-powered iterative obfuscation with ML evasion testing
 - **Mimicry**: Copy characteristics from benign software
 - **String Obfuscation**: Hide suspicious strings using Base64 encoding
 - **Section Manipulation**: Add junk data and modify section characteristics
@@ -40,6 +42,9 @@ make run INPUT=path/to/payload.exe
 
 # Full obfuscation with all modules
 make run-pe INPUT=path/to/payload.exe
+
+# Autonomous obfuscation agent with ML evasion testing
+make agent INPUT=path/to/payload.exe
 
 # Batch process a directory
 make batch-obfuscate INPUT_DIR=samples/
@@ -76,13 +81,16 @@ Each module is specialized and can be tested independently. The pipeline orchest
 ## 🧪 Testing
 
 ```bash
-# Run all tests (134 tests)
+# Run all tests (202 tests)
 make test
 
 # Test individual modules
 make test-modules
 make test-compression
 make test-encryption
+
+# Test autonomous agent
+make test-agent
 ```
 
 ## 🐳 Docker Support
