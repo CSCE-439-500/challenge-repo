@@ -33,6 +33,109 @@ The toolkit has been refactored into specialized, focused modules for better mai
 - **`standalone.py`**: Runtime decode helpers for in-memory reversal
 - **`rust_crypter.py`**: Rust-Crypter integration for advanced encryption and in-memory execution
 
+### Obfuscation Agent (`obfuscation_agent`)
+- **`agent.py`**: Agno-based autonomous obfuscation agent with ML evasion testing
+- **`obfuscation_tools.py`**: Core PE obfuscation functions (junk sections, section rearrangement, name changes, timestamps)
+- **`evasion_model.py`**: Placeholder ML classification model for testing evasion success
+- **`state_manager.py`**: Checkpoint and revert functionality for binary state management
+
+## 🤖 Autonomous Obfuscation Agent
+
+The toolkit includes an autonomous obfuscation agent that can automatically apply obfuscation techniques and test for ML evasion success. This agent is built using the Agno framework with Google's Gemini AI model and provides intelligent, iterative obfuscation with learning capabilities.
+
+### **Agent Architecture**
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        AUTONOMOUS OBFUSCATION AGENT                             │
+└─────────────────────────────────────────────────────────────────────────────────┘
+
+Input PE File
+       │
+       ▼
+┌─────────────────┐
+│  Agent Init     │ ◄── Initialize ObfuscationAgent with Agno framework
+│  (Agno Agent)   │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Checkpoint     │ ◄── Save initial state for potential rollback
+│  Creation       │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────────────────────────────────────────────────────────────────────┐
+│                        ITERATIVE OBFUSCATION LOOP                               │
+├─────────────────┬─────────────────┬─────────────────┬─────────────────────────┤
+│   Attempt 1     │   Attempt 2     │   Attempt 3     │   ... Max Attempts      │
+│                 │                 │                 │                         │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Random Tool │ │ │ Random Tool │ │ │ Random Tool │ │ │ Random Tool         │ │
+│ │ Selection   │ │ │ Selection   │ │ │ Selection   │ │ │ Selection           │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Apply       │ │ │ Apply       │ │ │ Apply       │ │ │ Apply               │ │
+│ │ Obfuscation │ │ │ Obfuscation │ │ │ Obfuscation │ │ │ Obfuscation         │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+│ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────┐ │ ┌─────────────────────┐ │
+│ │ Test        │ │ │ Test        │ │ │ Test        │ │ │ Test                │ │
+│ │ Evasion     │ │ │ Evasion     │ │ │ Evasion     │ │ │ Evasion             │ │
+│ └─────────────┘ │ └─────────────┘ │ └─────────────┘ │ └─────────────────────┘ │
+└─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Success?       │ ◄── Check if ML model returns 0 (evaded)
+│  (ML Model)     │
+└─────────────────┘
+       │
+       ▼
+┌─────────────────┐
+│  Final Result   │ ◄── Return obfuscated file or revert on failure
+│  (Success/Fail) │
+└─────────────────┘
+```
+
+### **Agent Features**
+
+- **AI-Powered Decision Making**: Uses Google Gemini to intelligently choose obfuscation techniques
+- **Learning Capability**: Tracks technique effectiveness and learns from previous attempts
+- **Autonomous Operation**: No manual intervention required
+- **ML Evasion Testing**: Tests each obfuscation attempt against a placeholder ML model
+- **Checkpoint Management**: Saves and reverts binary states for error recovery
+- **Iterative Approach**: Continues until evasion success or maximum attempts reached
+- **Error Handling**: Graceful failure with state rollback on errors
+- **Advanced Techniques**: Can apply Rust-Crypter or UPX packing when appropriate
+
+### **Available Obfuscation Tools**
+
+| **Tool** | **Function** | **Description** |
+|----------|--------------|-----------------|
+| **Add Junk Sections** | `add_junk_sections()` | Adds random junk data sections to increase entropy |
+| **Rearrange Sections** | `rearrange_sections()` | Randomly reorders PE sections to confuse analysis |
+| **Change Section Names** | `change_section_names()` | Renames sections to appear more benign |
+| **Change Timestamp** | `change_timestamp()` | Modifies PE timestamp to avoid detection patterns |
+
+### **AI Model Configuration**
+
+The agent uses Google's Gemini AI model for intelligent decision-making:
+
+- **Model**: Gemini 2.5 Flash (configurable)
+- **API Key**: Set via `GEMINI_API_KEY` environment variable
+- **Fallback**: Intelligent heuristics when API key is not available
+- **Learning**: Tracks technique effectiveness across attempts
+- **Context Awareness**: Considers previous actions and outcomes
+
+### **Evasion Model**
+
+The agent uses a placeholder ML classification model that simulates real-world static analysis:
+
+- **Random Decision**: Based on file size and entropy heuristics
+- **Entropy-Based**: Higher entropy files have better evasion chances
+- **Deterministic Mode**: Available for consistent testing results
+- **Return Values**: `0` = evaded (not detected), `1` = detected
+
 ## 🔄 PE Obfuscation Pipeline
 
 ### **1. Initial Analysis**
@@ -255,6 +358,13 @@ rt_evade/
     ├── test_pe_string_obfuscation.py
     ├── test_pe_section_manipulation.py
     └── ...
+
+src/
+└── obfuscation_agent/       # Autonomous obfuscation agent
+    ├── agent.py            # Agno-based autonomous agent
+    ├── obfuscation_tools.py # Core PE obfuscation functions
+    ├── evasion_model.py    # Placeholder ML classification model
+    └── state_manager.py    # Checkpoint and revert functionality
 ```
 
 ## 🔧 Rust-Crypter Integration Workflow
@@ -392,6 +502,40 @@ make batch-crypt INPUT_DIR=samples/ OUTPUT_DIR=encrypted_binaries/
 - **Parallel Processing**: Each file processed independently
 - **Error Handling**: Continues processing even if individual files fail
 - **Comprehensive Logging**: Detailed success/failure reporting
+
+## 🔧 Environment Configuration
+
+### Required Environment Variables
+
+The toolkit requires specific environment variables to be set for proper operation:
+
+#### Core Operation
+- `REDTEAM_MODE=true` - Enables the toolkit (required for all operations)
+- `ALLOW_ACTIONS=true` - Allows file write operations
+
+#### AI Agent Configuration
+- `GEMINI_API_KEY` - Google Gemini API key for AI-powered obfuscation decisions
+  - Get from [Google AI Studio](https://aistudio.google.com/)
+  - Add to `.env` file: `GEMINI_API_KEY=your_api_key_here`
+
+#### Advanced Features
+- `RUST_CRYPTER_PATH` - Path to Rust-Crypter directory for advanced encryption
+  - Add to `.env` file: `RUST_CRYPTER_PATH=/path/to/rust-crypter`
+
+### Environment Setup
+
+Create a `.env` file in the project root:
+
+```bash
+# Create .env file
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
 
 ## 🎯 Key Design Principles
 

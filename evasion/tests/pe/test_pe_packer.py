@@ -25,7 +25,10 @@ class TestPEPacker:
             assert out == mock_pe_data
 
     def test_upx_success(self, mock_pe_data):
-        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}, clear=True):
+        with patch.dict(
+            os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}, clear=True
+        ):
+
             def fake_run(args, stdout=None, stderr=None, check=None):  # noqa: ARG001
                 out_index = args.index("-o") + 1
                 output_path = args[out_index]
@@ -39,15 +42,24 @@ class TestPEPacker:
 
                 return R()
 
-            packer = PEPacker(PackerConfig(enable_packer=True, packer_name="upx", packer_args=["--best"]))
+            packer = PEPacker(
+                PackerConfig(
+                    enable_packer=True, packer_name="upx", packer_args=["--best"]
+                )
+            )
             with patch("rt_evade.pe.packer.subprocess.run", side_effect=fake_run):
                 out = packer.pack_pe(mock_pe_data + b"X" * 5000)
             assert isinstance(out, bytes)
             assert len(out) < len(mock_pe_data) + 5000
 
     def test_upx_failure_returns_original(self, mock_pe_data):
-        with patch.dict(os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}, clear=True):
-            def fake_run_fail(args, stdout=None, stderr=None, check=None):  # noqa: ARG001
+        with patch.dict(
+            os.environ, {"REDTEAM_MODE": "true", "ALLOW_ACTIONS": "true"}, clear=True
+        ):
+
+            def fake_run_fail(
+                args, stdout=None, stderr=None, check=None
+            ):  # noqa: ARG001
                 class R:
                     returncode = 1
                     stdout = b""
@@ -65,5 +77,3 @@ class TestPEPacker:
             packer = PEPacker(PackerConfig(enable_packer=True, packer_name="upx"))
             with pytest.raises(PermissionError):
                 packer.pack_pe(mock_pe_data + b"Z" * 5000)
-
-

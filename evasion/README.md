@@ -12,15 +12,17 @@ rt_evade is a specialized toolkit designed for **static ML evasion research**. I
 
 ### Key Features
 
+- **🤖 Autonomous Agent**: AI-powered obfuscation agent with ML evasion testing
 - **🔧 Modular Architecture**: Specialized components for different obfuscation techniques
 - **🛡️ PE Format Integrity**: Preserves Windows PE structure while obfuscating content
 - **🔒 Safety First**: ROE compliance with explicit environment variable controls
 - **📦 Batch Processing**: Process entire directories of binaries automatically
 - **🐳 Docker Support**: Containerized deployment for consistent execution
-- **🧪 Comprehensive Testing**: 134 tests covering all modules and workflows
+- **🧪 Comprehensive Testing**: 202 tests covering all modules and workflows
 
 ### Obfuscation Techniques
 
+- **🤖 Autonomous Agent**: AI-powered iterative obfuscation with ML evasion testing
 - **Mimicry**: Copy characteristics from benign software
 - **String Obfuscation**: Hide suspicious strings using Base64 encoding
 - **Section Manipulation**: Add junk data and modify section characteristics
@@ -31,15 +33,41 @@ rt_evade is a specialized toolkit designed for **static ML evasion research**. I
 
 ## 🚀 Quick Start
 
-```bash
-# first
-pip install -r requirements.txt
+### Environment Setup
 
+1. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+2. **Create environment file:**
+```bash
+# Create .env file in project root
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
+
+3. **Get your Gemini API key:**
+   - Visit [Google AI Studio](https://aistudio.google.com/)
+   - Create a new API key
+   - Replace `your_gemini_api_key_here` in the `.env` file
+
+### Basic Usage
+
+```bash
 # Basic PE obfuscation
 make run INPUT=path/to/payload.exe
 
 # Full obfuscation with all modules
 make run-pe INPUT=path/to/payload.exe
+
+# Autonomous obfuscation agent with ML evasion testing
+make agent INPUT=path/to/payload.exe
 
 # Batch process a directory
 make batch-obfuscate INPUT_DIR=samples/
@@ -76,13 +104,16 @@ Each module is specialized and can be tested independently. The pipeline orchest
 ## 🧪 Testing
 
 ```bash
-# Run all tests (134 tests)
+# Run all tests (202 tests)
 make test
 
 # Test individual modules
 make test-modules
 make test-compression
 make test-encryption
+
+# Test autonomous agent
+make test-agent
 ```
 
 ## 🐳 Docker Support
