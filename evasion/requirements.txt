@@ -3,4 +3,4 @@ pyinstaller
 pefile
 pre-commit
 agno
-openai
+google-genai

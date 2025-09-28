@@ -4,7 +4,7 @@ import pytest
 import tempfile
 import os
 from unittest.mock import Mock, patch, MagicMock
-from src.obfuscation_agent.agent import ObfuscationAgent
+from obfuscation_agent.agent import ObfuscationAgent
 
 
 class TestAIObfuscationAgent:
@@ -68,7 +68,7 @@ class TestAIObfuscationAgent:
 
         assert agent.get_technique_success_rate("test_technique") == 2 / 3
 
-    @patch("src.obfuscation_agent.agent.OpenAIChat")
+    @patch("obfuscation_agent.agent.OpenAIChat")
     def test_ai_decide_next_action_success(self, mock_openai, agent):
         """Test AI decision making with successful response."""
         # Mock the AI model response
@@ -84,7 +84,7 @@ class TestAIObfuscationAgent:
         assert action == "add_junk_sections"
         mock_model.response.assert_called_once()
 
-    @patch("src.obfuscation_agent.agent.OpenAIChat")
+    @patch("obfuscation_agent.agent.OpenAIChat")
     def test_ai_decide_next_action_invalid_response(self, mock_openai, agent):
         """Test AI decision making with invalid response falls back to heuristics."""
         # Mock the AI model response with invalid action
@@ -107,7 +107,7 @@ class TestAIObfuscationAgent:
         ]
         assert action in valid_actions
 
-    @patch("src.obfuscation_agent.agent.OpenAIChat")
+    @patch("obfuscation_agent.agent.OpenAIChat")
     def test_ai_decide_next_action_error_fallback(self, mock_openai, agent):
         """Test AI decision making with error falls back to random."""
         # Mock the AI model to raise an exception
@@ -228,8 +228,8 @@ class TestAIObfuscationAgent:
         assert "advanced_techniques_used" in status
         assert "recent_action_outcomes" in status
 
-    @patch("src.obfuscation_agent.agent.validate_pe_file")
-    @patch("src.obfuscation_agent.agent.evasion_model")
+    @patch("obfuscation_agent.agent.validate_pe_file")
+    @patch("obfuscation_agent.agent.evasion_model")
     def test_obfuscation_loop_with_ai_decision(
         self, mock_evasion, mock_validate, agent, mock_pe_file
     ):
@@ -254,8 +254,8 @@ class TestAIObfuscationAgent:
                 assert "add_junk_sections" in history
                 mock_ai_decision.assert_called_once()
 
-    @patch("src.obfuscation_agent.agent.validate_pe_file")
-    @patch("src.obfuscation_agent.agent.evasion_model")
+    @patch("obfuscation_agent.agent.validate_pe_file")
+    @patch("obfuscation_agent.agent.evasion_model")
     def test_obfuscation_loop_tracks_outcomes(
         self, mock_evasion, mock_validate, agent, mock_pe_file
     ):

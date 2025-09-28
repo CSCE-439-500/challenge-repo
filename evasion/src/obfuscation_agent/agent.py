@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 
 from agno.agent import Agent
 from agno.tools import tool
-from agno.models.openai import OpenAIChat
+from agno.models.google import Gemini
 from agno.models.message import Message
 
 # Load environment variables from .env file
@@ -64,15 +64,15 @@ class ObfuscationAgent(Agent):
             "advanced techniques like Rust-Crypter or UPX packing.",
         )
 
-        # Initialize OpenAI model with API key from environment
-        api_key = os.getenv("OPENAI_API_KEY")
+        # Initialize Gemini model with API key from environment
+        api_key = os.getenv("GEMINI_API_KEY")
         if not api_key:
             logger.warning(
-                "OPENAI_API_KEY not found in environment variables. AI features will be limited."
+                "GEMINI_API_KEY not found in environment variables. AI features will be limited."
             )
             api_key = "dummy-key"  # Fallback for testing
 
-        kwargs.setdefault("model", OpenAIChat(id="gpt-4o", api_key=api_key))
+        kwargs.setdefault("model", Gemini(id="gemini-2.5-flash", api_key=api_key))
 
         super().__init__(**kwargs)
 
