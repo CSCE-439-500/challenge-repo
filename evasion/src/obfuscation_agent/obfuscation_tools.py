@@ -40,8 +40,8 @@ def add_junk_sections(filepath: str, output_dir: str = None) -> str:
         with PEReader(pe_data) as reader:
             # Create a new PE writer
             with PEWriter(pe_data) as writer:
-                # Add a junk section with random name
-                junk_section_name = f".junk{random.randint(1000, 9999)}"
+                # Add a junk section with random name (max 8 chars for PE)
+                junk_section_name = f".j{random.randint(100, 999)}"
                 junk_data = os.urandom(1024)  # 1KB of random data
 
                 # Add the junk section
@@ -52,10 +52,12 @@ def add_junk_sections(filepath: str, output_dir: str = None) -> str:
 
         # Save to new file
         if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+            # Create intermediate files directory within the specific output directory
+            intermediate_dir = os.path.join(output_dir, "intermediate-files")
+            os.makedirs(intermediate_dir, exist_ok=True)
             filename = os.path.basename(filepath)
             name, ext = os.path.splitext(filename)
-            new_path = os.path.join(output_dir, f"{name}_junked{ext}")
+            new_path = os.path.join(intermediate_dir, f"{name}_junked{ext}")
         else:
             new_path = filepath.replace(".exe", "_junked.exe")
         with open(new_path, "wb") as f:
@@ -123,10 +125,12 @@ def rearrange_sections(filepath: str, output_dir: str = None) -> str:
 
         # Save to new file
         if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+            # Create intermediate files directory
+            intermediate_dir = os.path.join(output_dir, "intermediate-files")
+            os.makedirs(intermediate_dir, exist_ok=True)
             filename = os.path.basename(filepath)
             name, ext = os.path.splitext(filename)
-            new_path = os.path.join(output_dir, f"{name}_rearranged{ext}")
+            new_path = os.path.join(intermediate_dir, f"{name}_rearranged{ext}")
         else:
             new_path = filepath.replace(".exe", "_rearranged.exe")
         with open(new_path, "wb") as f:
@@ -188,10 +192,12 @@ def change_section_names(filepath: str, output_dir: str = None) -> str:
 
         # Save to new file
         if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+            # Create intermediate files directory
+            intermediate_dir = os.path.join(output_dir, "intermediate-files")
+            os.makedirs(intermediate_dir, exist_ok=True)
             filename = os.path.basename(filepath)
             name, ext = os.path.splitext(filename)
-            new_path = os.path.join(output_dir, f"{name}_renamed{ext}")
+            new_path = os.path.join(intermediate_dir, f"{name}_renamed{ext}")
         else:
             new_path = filepath.replace(".exe", "_renamed.exe")
         with open(new_path, "wb") as f:
@@ -241,10 +247,12 @@ def change_timestamp(filepath: str, output_dir: str = None) -> str:
 
         # Save to new file
         if output_dir:
-            os.makedirs(output_dir, exist_ok=True)
+            # Create intermediate files directory
+            intermediate_dir = os.path.join(output_dir, "intermediate-files")
+            os.makedirs(intermediate_dir, exist_ok=True)
             filename = os.path.basename(filepath)
             name, ext = os.path.splitext(filename)
-            new_path = os.path.join(output_dir, f"{name}_timestamped{ext}")
+            new_path = os.path.join(intermediate_dir, f"{name}_timestamped{ext}")
         else:
             new_path = filepath.replace(".exe", "_timestamped.exe")
         with open(new_path, "wb") as f:

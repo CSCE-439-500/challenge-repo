@@ -101,14 +101,8 @@ Examples:
         print(f"Attempts Made: {len(history)}")
         print(f"Obfuscation History: {', '.join(history) if history else 'None'}")
 
-        # Move final binary to output directory if different
-        if args.output_dir != "." and final_binary != initial_binary_path:
-            import shutil
-
-            final_filename = os.path.basename(final_binary)
-            output_path = os.path.join(args.output_dir, final_filename)
-            shutil.move(final_binary, output_path)
-            print(f"Final binary moved to: {output_path}")
+        # Final binary is already in the correct location
+        print(f"Final binary saved to: {final_binary}")
 
         return 0 if evaded_status else 1
 

@@ -105,7 +105,7 @@ class TestObfuscationAgent:
         """Test agent initialization."""
         agent = ObfuscationAgent()
 
-        assert agent.name == "BinaryObfuscationAgent"
+        assert agent.name == "AIObfuscationAgent"
         assert "obfuscation techniques" in agent.description
         assert agent.current_binary_path is None
         assert agent.obfuscation_history == []
@@ -131,7 +131,7 @@ class TestObfuscationAgent:
         result = agent.add_junk_sections(temp_pe_file)
 
         assert result == "modified_file.exe"
-        mock_add_junk_sections.assert_called_once_with(temp_pe_file)
+        mock_add_junk_sections.assert_called_once_with(temp_pe_file, None)
 
     @patch("obfuscation_agent.agent.rearrange_sections")
     def test_rearrange_sections_tool(self, mock_rearrange_sections, temp_pe_file):
@@ -142,7 +142,7 @@ class TestObfuscationAgent:
         result = agent.rearrange_sections(temp_pe_file)
 
         assert result == "modified_file.exe"
-        mock_rearrange_sections.assert_called_once_with(temp_pe_file)
+        mock_rearrange_sections.assert_called_once_with(temp_pe_file, None)
 
     @patch("obfuscation_agent.agent.change_section_names")
     def test_change_section_names_tool(self, mock_change_section_names, temp_pe_file):
@@ -153,7 +153,7 @@ class TestObfuscationAgent:
         result = agent.change_section_names(temp_pe_file)
 
         assert result == "modified_file.exe"
-        mock_change_section_names.assert_called_once_with(temp_pe_file)
+        mock_change_section_names.assert_called_once_with(temp_pe_file, None)
 
     @patch("obfuscation_agent.agent.change_timestamp")
     def test_change_timestamp_tool(self, mock_change_timestamp, temp_pe_file):
@@ -164,7 +164,7 @@ class TestObfuscationAgent:
         result = agent.change_timestamp(temp_pe_file)
 
         assert result == "modified_file.exe"
-        mock_change_timestamp.assert_called_once_with(temp_pe_file)
+        mock_change_timestamp.assert_called_once_with(temp_pe_file, None)
 
     @patch("obfuscation_agent.agent.evasion_model")
     def test_test_evasion_tool(self, mock_evasion_model, temp_pe_file):
@@ -192,7 +192,7 @@ class TestObfuscationAgent:
             "add_junk_sections",
             "change_timestamp",
         ]
-        assert status["agent_name"] == "BinaryObfuscationAgent"
+        assert status["agent_name"] == "AIObfuscationAgent"
         assert "obfuscation techniques" in status["agent_description"]
 
     @patch("obfuscation_agent.agent.validate_pe_file")

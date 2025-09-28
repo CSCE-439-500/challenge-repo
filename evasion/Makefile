@@ -103,7 +103,7 @@ run-crypt: init
 
 agent: init
 	$(ENV_REDTEAM) $(ENV_ACTIONS) $(ENV_LOG) $(ENV_PYTHONPATH) \
-	$(PYTHON) main.py $(INPUT) --output-dir $(dir $(OUTPUT))
+	$(PYTHON) main.py $(INPUT) --output-dir $(OUTPUT)
 
 dry-run:
 	$(ENV_REDTEAM) $(ENV_LOG) $(ENV_UPX) $(ENV_UPX_ARGS) \
