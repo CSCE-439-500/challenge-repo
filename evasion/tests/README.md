@@ -10,11 +10,29 @@ This suite validates PE obfuscation functionality and format integrity.
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-# Note: requirements.txt includes pytest, pyinstaller, and pefile
+# Note: requirements.txt includes pytest, pyinstaller, pefile, and google-genai
 ```
 
 - PE file format support via pefile library
+- AI model support via google-genai library
 - Cross-platform (Windows, Linux, macOS)
+
+### Environment Configuration
+
+Create a `.env` file in the project root for AI agent tests:
+
+```bash
+# Create .env file for testing
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
+
+**Note**: Tests will fall back to intelligent heuristics if no API key is provided.
 
 ## What the tests do
 
@@ -36,6 +54,7 @@ pytest -vv -s
 Notes on environment:
 - `make test` sets `REDTEAM_MODE=true`, `PYTHONPATH=src` automatically.
 - PE obfuscation tests use mock PE data for cross-platform compatibility.
+- AI agent tests use mocked Gemini API calls for consistent testing.
 - Build artifacts are cleaned with `make clean` (removes `out/`, `build/`, `dist/`, `*.spec`, `__pycache__/`, `.pytest_cache/`).
 
 ## Test Structure

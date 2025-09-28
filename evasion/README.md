@@ -33,10 +33,33 @@ rt_evade is a specialized toolkit designed for **static ML evasion research**. I
 
 ## 🚀 Quick Start
 
-```bash
-# first
-pip install -r requirements.txt
+### Environment Setup
 
+1. **Install dependencies:**
+```bash
+pip install -r requirements.txt
+```
+
+2. **Create environment file:**
+```bash
+# Create .env file in project root
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
+
+3. **Get your Gemini API key:**
+   - Visit [Google AI Studio](https://aistudio.google.com/)
+   - Create a new API key
+   - Replace `your_gemini_api_key_here` in the `.env` file
+
+### Basic Usage
+
+```bash
 # Basic PE obfuscation
 make run INPUT=path/to/payload.exe
 

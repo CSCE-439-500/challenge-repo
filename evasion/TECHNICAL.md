@@ -41,7 +41,7 @@ The toolkit has been refactored into specialized, focused modules for better mai
 
 ## 🤖 Autonomous Obfuscation Agent
 
-The toolkit includes an autonomous obfuscation agent that can automatically apply obfuscation techniques and test for ML evasion success. This agent is built using the Agno framework and provides intelligent, iterative obfuscation.
+The toolkit includes an autonomous obfuscation agent that can automatically apply obfuscation techniques and test for ML evasion success. This agent is built using the Agno framework with Google's Gemini AI model and provides intelligent, iterative obfuscation with learning capabilities.
 
 ### **Agent Architecture**
 
@@ -99,12 +99,14 @@ Input PE File
 
 ### **Agent Features**
 
+- **AI-Powered Decision Making**: Uses Google Gemini to intelligently choose obfuscation techniques
+- **Learning Capability**: Tracks technique effectiveness and learns from previous attempts
 - **Autonomous Operation**: No manual intervention required
-- **Random Tool Selection**: Randomly selects from available obfuscation techniques
 - **ML Evasion Testing**: Tests each obfuscation attempt against a placeholder ML model
 - **Checkpoint Management**: Saves and reverts binary states for error recovery
 - **Iterative Approach**: Continues until evasion success or maximum attempts reached
 - **Error Handling**: Graceful failure with state rollback on errors
+- **Advanced Techniques**: Can apply Rust-Crypter or UPX packing when appropriate
 
 ### **Available Obfuscation Tools**
 
@@ -114,6 +116,16 @@ Input PE File
 | **Rearrange Sections** | `rearrange_sections()` | Randomly reorders PE sections to confuse analysis |
 | **Change Section Names** | `change_section_names()` | Renames sections to appear more benign |
 | **Change Timestamp** | `change_timestamp()` | Modifies PE timestamp to avoid detection patterns |
+
+### **AI Model Configuration**
+
+The agent uses Google's Gemini AI model for intelligent decision-making:
+
+- **Model**: Gemini 2.5 Flash (configurable)
+- **API Key**: Set via `GEMINI_API_KEY` environment variable
+- **Fallback**: Intelligent heuristics when API key is not available
+- **Learning**: Tracks technique effectiveness across attempts
+- **Context Awareness**: Considers previous actions and outcomes
 
 ### **Evasion Model**
 
@@ -490,6 +502,40 @@ make batch-crypt INPUT_DIR=samples/ OUTPUT_DIR=encrypted_binaries/
 - **Parallel Processing**: Each file processed independently
 - **Error Handling**: Continues processing even if individual files fail
 - **Comprehensive Logging**: Detailed success/failure reporting
+
+## 🔧 Environment Configuration
+
+### Required Environment Variables
+
+The toolkit requires specific environment variables to be set for proper operation:
+
+#### Core Operation
+- `REDTEAM_MODE=true` - Enables the toolkit (required for all operations)
+- `ALLOW_ACTIONS=true` - Allows file write operations
+
+#### AI Agent Configuration
+- `GEMINI_API_KEY` - Google Gemini API key for AI-powered obfuscation decisions
+  - Get from [Google AI Studio](https://aistudio.google.com/)
+  - Add to `.env` file: `GEMINI_API_KEY=your_api_key_here`
+
+#### Advanced Features
+- `RUST_CRYPTER_PATH` - Path to Rust-Crypter directory for advanced encryption
+  - Add to `.env` file: `RUST_CRYPTER_PATH=/path/to/rust-crypter`
+
+### Environment Setup
+
+Create a `.env` file in the project root:
+
+```bash
+# Create .env file
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
 
 ## 🎯 Key Design Principles
 

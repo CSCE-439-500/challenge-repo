@@ -122,9 +122,39 @@ docker run pe-evasion --help
 
 ## 🔧 Configuration
 
+### Environment Setup
+
+Create a `.env` file in the project root with the following variables:
+
+```bash
+# Create .env file
+cat > .env << EOF
+# Google Gemini API key for AI-powered obfuscation agent
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Path to Rust-Crypter directory (for advanced encryption)
+RUST_CRYPTER_PATH=/path/to/rust-crypter
+EOF
+```
+
+**Getting API Keys:**
+- **Gemini API Key**: Visit [Google AI Studio](https://aistudio.google.com/) to create a free API key
+- **Rust-Crypter Path**: Clone the [Rust-Crypter repository](https://github.com/your-repo/rust-crypter) and set the path
+
 ### Environment Variables
+
+#### Required for Operation
 - `REDTEAM_MODE=true` - Required to enable toolkit
 - `ALLOW_ACTIONS=true` - Required for file writes
+
+#### AI Agent Configuration
+- `GEMINI_API_KEY` - Google Gemini API key for AI-powered obfuscation decisions
+  - Get your key from [Google AI Studio](https://aistudio.google.com/)
+  - Add to `.env` file: `GEMINI_API_KEY=your_api_key_here`
+
+#### Advanced Features
+- `RUST_CRYPTER_PATH` - Path to Rust-Crypter directory for advanced encryption
+  - Add to `.env` file: `RUST_CRYPTER_PATH=/path/to/rust-crypter`
 - `USE_UPX=1` - Enable UPX packing (Make passes this automatically unless `UPX=0`)
 - `UPX_ARGS="--best --lzma"` - Extra flags for UPX
 - `DECODE_KEY=secret` - Encryption key for runtime decoding
@@ -142,7 +172,7 @@ docker run pe-evasion --help
 
 ## 🤖 Autonomous Obfuscation Agent
 
-The toolkit includes an autonomous obfuscation agent that uses AI to automatically apply obfuscation techniques and test for ML evasion success. The agent iteratively applies random obfuscation tools until it achieves evasion or reaches the maximum number of attempts.
+The toolkit includes an autonomous obfuscation agent that uses Google's Gemini AI to automatically apply obfuscation techniques and test for ML evasion success. The agent intelligently selects obfuscation tools based on previous attempts and success rates, learning from experience to make better decisions.
 
 ### **Agent Usage**
 
@@ -162,12 +192,14 @@ python main.py --input path/to/payload.exe --output out/agent_result.exe
 
 ### **Agent Features**
 
+- **AI-Powered Decision Making**: Uses Google Gemini to intelligently choose obfuscation techniques
+- **Learning Capability**: Tracks technique effectiveness and learns from previous attempts
 - **Autonomous Operation**: No manual intervention required
-- **Random Tool Selection**: Randomly selects from available obfuscation techniques
 - **ML Evasion Testing**: Tests each obfuscation attempt against a placeholder ML model
 - **Checkpoint Management**: Saves and reverts binary states for error recovery
 - **Iterative Approach**: Continues until evasion success or maximum attempts reached
 - **Error Handling**: Graceful failure with state rollback on errors
+- **Advanced Techniques**: Can apply Rust-Crypter or UPX packing when appropriate
 
 ### **Available Obfuscation Tools**
 
