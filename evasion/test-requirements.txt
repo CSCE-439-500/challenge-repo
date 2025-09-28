@@ -1,3 +1,5 @@
 pytest
 pyinstaller
 pefile
+agno
+google-genai
