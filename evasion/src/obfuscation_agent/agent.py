@@ -471,7 +471,9 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
                 # Save checkpoint before modification
                 try:
-                    checkpoint_path = save_checkpoint(self.current_binary_path)
+                    checkpoint_path = save_checkpoint(
+                        self.current_binary_path, self.output_dir
+                    )
                     logger.info(f"Checkpoint saved: {checkpoint_path}")
                 except Exception as e:
                     logger.info(f"Warning: Failed to save checkpoint: {e}")

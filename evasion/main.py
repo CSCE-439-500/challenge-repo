@@ -14,14 +14,15 @@ from typing import Optional
 # Add src to path for imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
-from obfuscation_agent.agent import ObfuscationAgent
-from obfuscation_agent.obfuscation_tools import validate_pe_file
-
-# Configure logging
+# Configure logging early to capture all logs
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Import after logging is configured
+from obfuscation_agent.agent import ObfuscationAgent
+from obfuscation_agent.obfuscation_tools import validate_pe_file
 
 
 def main():
@@ -59,11 +60,25 @@ Examples:
 
     args = parser.parse_args()
 
+    # Create output directory if it doesn't exist
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    # Set up logging to file in output directory
+    log_file = os.path.join(args.output_dir, "log.txt")
+
+    # Clear existing handlers and add file + console handlers
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(logging.FileHandler(log_file))
+    root_logger.addHandler(logging.StreamHandler(sys.stdout))
+    root_logger.setLevel(logging.INFO)
+
     # Set logging level
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
 
     try:
+
         # Validate input file
         initial_binary_path = args.binary_path
         if not os.path.exists(initial_binary_path):
@@ -79,9 +94,6 @@ Examples:
         print(f"Max attempts: {args.max_attempts}")
         print(f"Output directory: {args.output_dir}")
         print("-" * 50)
-
-        # Create output directory if it doesn't exist
-        os.makedirs(args.output_dir, exist_ok=True)
 
         # Instantiate the Agno Agent
         agent = ObfuscationAgent(output_dir=args.output_dir)

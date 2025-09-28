@@ -15,11 +15,12 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
-def save_checkpoint(filepath: str) -> str:
+def save_checkpoint(filepath: str, output_dir: str = None) -> str:
     """Save a checkpoint of the binary file.
 
     Args:
         filepath: Path to the binary file to checkpoint
+        output_dir: Output directory to save checkpoints in
 
     Returns:
         Path to the checkpoint file
@@ -35,10 +36,21 @@ def save_checkpoint(filepath: str) -> str:
         # Generate timestamp for checkpoint name (with microseconds for uniqueness)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
 
-        # Create checkpoint filename
-        base_name = os.path.splitext(filepath)[0]
-        extension = os.path.splitext(filepath)[1]
-        checkpoint_path = f"{base_name}_checkpoint_{timestamp}{extension}"
+        if output_dir:
+            # Save checkpoint in the output directory's checkpoints folder
+            checkpoints_dir = os.path.join(output_dir, "checkpoints")
+            os.makedirs(checkpoints_dir, exist_ok=True)
+            filename = os.path.basename(filepath)
+            base_name = os.path.splitext(filename)[0]
+            extension = os.path.splitext(filename)[1]
+            checkpoint_path = os.path.join(
+                checkpoints_dir, f"{base_name}_checkpoint_{timestamp}{extension}"
+            )
+        else:
+            # Fallback to original behavior
+            base_name = os.path.splitext(filepath)[0]
+            extension = os.path.splitext(filepath)[1]
+            checkpoint_path = f"{base_name}_checkpoint_{timestamp}{extension}"
 
         # Copy file to checkpoint location
         shutil.copy2(filepath, checkpoint_path)
