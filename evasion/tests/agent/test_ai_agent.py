@@ -68,8 +68,8 @@ class TestAIObfuscationAgent:
 
         assert agent.get_technique_success_rate("test_technique") == 2 / 3
 
-    @patch("obfuscation_agent.agent.OpenAIChat")
-    def test_ai_decide_next_action_success(self, mock_openai, agent):
+    @patch("obfuscation_agent.agent.Gemini")
+    def test_ai_decide_next_action_success(self, mock_gemini, agent):
         """Test AI decision making with successful response."""
         # Mock the AI model response
         mock_model = Mock()
@@ -84,8 +84,8 @@ class TestAIObfuscationAgent:
         assert action == "add_junk_sections"
         mock_model.response.assert_called_once()
 
-    @patch("obfuscation_agent.agent.OpenAIChat")
-    def test_ai_decide_next_action_invalid_response(self, mock_openai, agent):
+    @patch("obfuscation_agent.agent.Gemini")
+    def test_ai_decide_next_action_invalid_response(self, mock_gemini, agent):
         """Test AI decision making with invalid response falls back to heuristics."""
         # Mock the AI model response with invalid action
         mock_model = Mock()
@@ -107,8 +107,8 @@ class TestAIObfuscationAgent:
         ]
         assert action in valid_actions
 
-    @patch("obfuscation_agent.agent.OpenAIChat")
-    def test_ai_decide_next_action_error_fallback(self, mock_openai, agent):
+    @patch("obfuscation_agent.agent.Gemini")
+    def test_ai_decide_next_action_error_fallback(self, mock_gemini, agent):
         """Test AI decision making with error falls back to random."""
         # Mock the AI model to raise an exception
         mock_model = Mock()
