@@ -4,3 +4,4 @@ pefile
 pre-commit
 agno
 google-genai
+openai
