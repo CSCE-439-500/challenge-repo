@@ -72,7 +72,7 @@ class ObfuscationAgent(Agent):
             )
             api_key = "dummy-key"  # Fallback for testing
 
-        kwargs.setdefault("model", Gemini(id="gemini-2.5-flash", api_key=api_key))
+        kwargs.setdefault("model", Gemini(id="gemini-2.0-flash-lite", api_key=api_key))
 
         super().__init__(**kwargs)
 
