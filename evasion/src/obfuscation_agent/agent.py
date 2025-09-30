@@ -16,6 +16,14 @@ from agno.tools import tool
 from agno.models.google import Gemini
 from agno.models.message import Message
 
+# Conditional import for OpenAI
+try:
+    from agno.models.openai import OpenAIChat
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OpenAIChat = None
+    OPENAI_AVAILABLE = False
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -64,15 +72,49 @@ class ObfuscationAgent(Agent):
             "advanced techniques like Rust-Crypter or UPX packing.",
         )
 
-        # Initialize Gemini model with API key from environment
-        api_key = os.getenv("GEMINI_API_KEY")
-        if not api_key:
-            logger.warning(
-                "GEMINI_API_KEY not found in environment variables. AI features will be limited."
-            )
-            api_key = "dummy-key"  # Fallback for testing
-
-        kwargs.setdefault("model", Gemini(id="gemini-2.0-flash-lite", api_key=api_key))
+        # Initialize AI model based on provider selection
+        provider = os.getenv("AI_PROVIDER", "gemini").lower()
+        model_id = os.getenv("AI_MODEL_ID")
+        
+        if provider == "openai":
+            # Check if OpenAI is available
+            if not OPENAI_AVAILABLE:
+                logger.error(
+                    "OpenAI provider requested but OpenAI package is not installed. "
+                    "Please install with: pip install openai"
+                )
+                raise ImportError("OpenAI package is required but not installed")
+            
+            # Initialize OpenAI model
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                logger.warning(
+                    "OPENAI_API_KEY not found in environment variables. AI features will be limited."
+                )
+                api_key = "dummy-key"  # Fallback for testing
+            
+            # Set default model if not specified
+            if not model_id:
+                model_id = "gpt-4o"
+            
+            kwargs.setdefault("model", OpenAIChat(id=model_id, api_key=api_key))
+            logger.info(f"Initialized OpenAI model: {model_id}")
+            
+        else:  # Default to Gemini
+            # Initialize Gemini model
+            api_key = os.getenv("GEMINI_API_KEY")
+            if not api_key:
+                logger.warning(
+                    "GEMINI_API_KEY not found in environment variables. AI features will be limited."
+                )
+                api_key = "dummy-key"  # Fallback for testing
+            
+            # Set default model if not specified
+            if not model_id:
+                model_id = "gemini-2.0-flash-lite"
+            
+            kwargs.setdefault("model", Gemini(id=model_id, api_key=api_key))
+            logger.info(f"Initialized Gemini model: {model_id}")
 
         super().__init__(**kwargs)
 
