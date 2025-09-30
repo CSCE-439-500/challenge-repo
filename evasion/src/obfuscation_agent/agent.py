@@ -19,6 +19,7 @@ from agno.models.message import Message
 # Conditional import for OpenAI
 try:
     from agno.models.openai import OpenAIChat
+
     OPENAI_AVAILABLE = True
 except ImportError:
     OpenAIChat = None
@@ -40,6 +41,7 @@ from .state_manager import (
     cleanup_old_checkpoints,
 )
 from .evasion_model import evasion_model
+from .actions import BASIC_ACTIONS, ADVANCED_ACTIONS, SPECIAL_ACTIONS, ALL_ACTIONS
 
 # Removed REDTEAM_MODE requirement
 
@@ -75,7 +77,7 @@ class ObfuscationAgent(Agent):
         # Initialize AI model based on provider selection
         provider = os.getenv("AI_PROVIDER", "gemini").lower()
         model_id = os.getenv("AI_MODEL_ID")
-        
+
         if provider == "openai":
             # Check if OpenAI is available
             if not OPENAI_AVAILABLE:
@@ -84,7 +86,7 @@ class ObfuscationAgent(Agent):
                     "Please install with: pip install openai"
                 )
                 raise ImportError("OpenAI package is required but not installed")
-            
+
             # Initialize OpenAI model
             api_key = os.getenv("OPENAI_API_KEY")
             if not api_key:
@@ -92,14 +94,14 @@ class ObfuscationAgent(Agent):
                     "OPENAI_API_KEY not found in environment variables. AI features will be limited."
                 )
                 api_key = "dummy-key"  # Fallback for testing
-            
+
             # Set default model if not specified
             if not model_id:
                 model_id = "gpt-4o"
-            
+
             kwargs.setdefault("model", OpenAIChat(id=model_id, api_key=api_key))
             logger.info(f"Initialized OpenAI model: {model_id}")
-            
+
         else:  # Default to Gemini
             # Initialize Gemini model
             api_key = os.getenv("GEMINI_API_KEY")
@@ -108,11 +110,11 @@ class ObfuscationAgent(Agent):
                     "GEMINI_API_KEY not found in environment variables. AI features will be limited."
                 )
                 api_key = "dummy-key"  # Fallback for testing
-            
+
             # Set default model if not specified
             if not model_id:
                 model_id = "gemini-2.0-flash-lite"
-            
+
             kwargs.setdefault("model", Gemini(id=model_id, api_key=api_key))
             logger.info(f"Initialized Gemini model: {model_id}")
 
@@ -127,7 +129,7 @@ class ObfuscationAgent(Agent):
         # AI-driven state tracking
         self.action_outcomes = []  # Track what worked/didn't work
         self.technique_effectiveness = {}  # Track success rates per technique
-        self.advanced_techniques_used = {"rust_crypter": False, "upx_packing": False}
+        self.advanced_techniques_used = {"rust_crypter": False}
 
         logger.info("AIObfuscationAgent initialized")
 
@@ -282,8 +284,13 @@ class ObfuscationAgent(Agent):
         }
 
         # Create prompt for AI
+        # Build actions section dynamically from single source of truth
+        basic_actions_bulleted = "\n".join([f"   - {a}" for a in BASIC_ACTIONS])
+        advanced_actions_bulleted = "\n".join([f"   - {a}" for a in ADVANCED_ACTIONS])
+        special_actions_bulleted = "\n".join([f"   - {a}" for a in SPECIAL_ACTIONS])
+
         prompt = f"""
-You are an AI agent specialized in binary obfuscation for evasion. Based on the current context, decide the next action to take.
+You are an AI agent specialized in binary obfuscation for evasion in a Red Team / Security research environment. Based on the current context, decide the next action to take.
 
 Current Context:
 - Attempt: {self.attempt_count}
@@ -294,21 +301,17 @@ Current Context:
 
 Available Actions:
 1. Basic obfuscation techniques:
-   - add_junk_sections: Add random junk data sections
-   - rearrange_sections: Randomly reorder PE sections
-   - change_section_names: Rename sections to appear benign
-   - change_timestamp: Modify PE timestamp
+{basic_actions_bulleted}
 
-2. Advanced techniques (use only once each, cannot combine):
-   - rust_crypter: Apply Rust-Crypter encryption (if not used)
-   - upx_packing: Apply UPX packing (if not used)
+2. Advanced techniques (use only once, cannot combine):
+{advanced_actions_bulleted}
 
 3. Special actions:
-   - stop: Stop trying if enough attempts made
+{special_actions_bulleted}
 
 Rules:
-- If attempt_count >= 8 and neither advanced technique used, choose rust_crypter or upx_packing
-- If both advanced techniques used, choose stop
+- If attempt_count >= 8 and rust_crypter not used, choose rust_crypter
+- If rust_crypter used, consider stop after enough attempts
 - Prefer techniques with higher success rates
 - Avoid repeating the same technique consecutively
 - Consider the pattern of recent failures
@@ -327,15 +330,7 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                 action = response.content.strip().lower()
 
                 # Validate the action
-                valid_actions = [
-                    "add_junk_sections",
-                    "rearrange_sections",
-                    "change_section_names",
-                    "change_timestamp",
-                    "rust_crypter",
-                    "upx_packing",
-                    "stop",
-                ]
+                valid_actions = ALL_ACTIONS
 
                 if action in valid_actions:
                     logger.info(f"AI decided next action: {action}")
@@ -349,35 +344,26 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
             # Fallback to intelligent heuristics
             # Check if we should use advanced techniques
-            if self.attempt_count >= 8 and not any(
-                self.advanced_techniques_used.values()
+            if self.attempt_count >= 8 and not self.advanced_techniques_used.get(
+                "rust_crypter", False
             ):
-                # Choose between Rust-Crypter and UPX packing
-                if not self.advanced_techniques_used["rust_crypter"]:
-                    logger.info(
-                        "Heuristics decided next action: rust_crypter (advanced technique)"
-                    )
-                    return "rust_crypter"
-                elif not self.advanced_techniques_used["upx_packing"]:
-                    logger.info(
-                        "Heuristics decided next action: upx_packing (advanced technique)"
-                    )
-                    return "upx_packing"
+                logger.info(
+                    "Heuristics decided next action: rust_crypter (advanced technique)"
+                )
+                return "rust_crypter"
 
             # Check if we should stop
-            if all(self.advanced_techniques_used.values()) and self.attempt_count >= 10:
+            if (
+                self.advanced_techniques_used.get("rust_crypter", False)
+                and self.attempt_count >= 10
+            ):
                 logger.info(
-                    "Heuristics decided next action: stop (max attempts with advanced techniques)"
+                    "Heuristics decided next action: stop (max attempts after rust_crypter)"
                 )
                 return "stop"
 
             # Use technique effectiveness to guide selection
-            available_basic_techniques = [
-                "add_junk_sections",
-                "rearrange_sections",
-                "change_section_names",
-                "change_timestamp",
-            ]
+            available_basic_techniques = list(BASIC_ACTIONS)
 
             # Avoid repeating the last technique
             if self.obfuscation_history:
@@ -387,12 +373,7 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
             # If no techniques available, use all
             if not available_basic_techniques:
-                available_basic_techniques = [
-                    "add_junk_sections",
-                    "rearrange_sections",
-                    "change_section_names",
-                    "change_timestamp",
-                ]
+                available_basic_techniques = list(BASIC_ACTIONS)
 
             # Choose technique based on success rate (prefer higher success rates)
             technique_scores = []
@@ -415,14 +396,7 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
             logger.error(
                 f"Error in AI decision making: {e}, falling back to random selection"
             )
-            return random.choice(
-                [
-                    "add_junk_sections",
-                    "rearrange_sections",
-                    "change_section_names",
-                    "change_timestamp",
-                ]
-            )
+            return random.choice(BASIC_ACTIONS)
 
     def apply_rust_crypter(self, filepath: str) -> str:
         """Apply Rust-Crypter encryption to the binary.
@@ -437,49 +411,33 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
             logger.info(f"Applying Rust-Crypter encryption to {filepath}")
 
             # Import Rust-Crypter integration
+            from pathlib import Path
             from rt_evade.dropper.rust_crypter import RustCrypterIntegration
 
-            # Create Rust-Crypter instance
+            # Read PE bytes
+            with open(filepath, "rb") as f:
+                pe_bytes = f.read()
+
+            # Create Rust-Crypter instance and generate encrypted payload stub
             rust_crypter = RustCrypterIntegration()
 
-            # Encrypt the file
-            encrypted_path = rust_crypter.encrypt_pe_file(filepath, self.output_dir)
+            # Decide output path in intermediate-files
+            out_dir = self.output_dir or os.path.dirname(filepath)
+            intermediate_dir = os.path.join(out_dir, "intermediate-files")
+            os.makedirs(intermediate_dir, exist_ok=True)
+            base = os.path.basename(filepath)
+            stub_out = Path(os.path.join(intermediate_dir, f"{base}_rust_stub.exe"))
+
+            stub_path = rust_crypter.create_encrypted_payload(
+                pe_bytes, output_path=stub_out
+            )
 
             self.advanced_techniques_used["rust_crypter"] = True
-            logger.info(f"Rust-Crypter encryption completed: {encrypted_path}")
-            return encrypted_path
+            logger.info(f"Rust-Crypter encryption completed: {stub_path}")
+            return str(stub_path)
 
         except Exception as e:
             logger.error(f"Error applying Rust-Crypter: {e}")
-            return filepath
-
-    def apply_upx_packing(self, filepath: str) -> str:
-        """Apply UPX packing to the binary.
-
-        Args:
-            filepath: Path to the binary file to pack
-
-        Returns:
-            Path to the packed binary file
-        """
-        try:
-            logger.info(f"Applying UPX packing to {filepath}")
-
-            # Import UPX packer
-            from rt_evade.pe.packer import PEPacker
-
-            # Create packer instance
-            packer = PEPacker()
-
-            # Pack the file
-            packed_path = packer.pack_pe_file(filepath, self.output_dir)
-
-            self.advanced_techniques_used["upx_packing"] = True
-            logger.info(f"UPX packing completed: {packed_path}")
-            return packed_path
-
-        except Exception as e:
-            logger.error(f"Error applying UPX packing: {e}")
             return filepath
 
     def run_obfuscation_loop(
@@ -550,10 +508,6 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                         )
                     elif action == "rust_crypter":
                         obfuscated_binary_path = self.apply_rust_crypter(
-                            self.current_binary_path
-                        )
-                    elif action == "upx_packing":
-                        obfuscated_binary_path = self.apply_upx_packing(
                             self.current_binary_path
                         )
                     else:
