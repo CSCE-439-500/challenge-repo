@@ -1,7 +1,16 @@
-"""Placeholder evasion model for testing obfuscation techniques.
+"""Evasion model client for querying the local model API.
 
-This module provides a simple random evasion model that simulates
-interaction with a real machine learning classification model.
+This module implements the actual model interaction logic by sending the
+binary bytes to a locally running model API (default: http://127.0.0.1:8080)
+and returning the classification result.
+
+Contract:
+- Request: POST binary bytes with header Content-Type: application/octet-stream
+- Response: JSON with field "result" where 0 = evaded (not detected), 1 = detected
+
+Environment variables:
+- MODEL_API_URL: Base URL of the model API (default: http://127.0.0.1:8080)
+- MODEL_API_TIMEOUT: Request timeout in seconds (default: 30)
 """
 
 import os
@@ -9,6 +18,9 @@ import random
 import math
 import logging
 from typing import Optional
+import json
+
+import requests
 
 # Removed REDTEAM_MODE requirement
 
@@ -16,46 +28,56 @@ logger = logging.getLogger(__name__)
 
 
 def evasion_model(filepath: str) -> int:
-    """Placeholder evasion model that randomly returns evasion results.
+    """Query the local model API and return the evasion result.
 
     Args:
         filepath: Path to the binary file to test
 
     Returns:
         0 if evaded (not detected), 1 if detected
-
-    Raises:
-        Exception: If file validation fails
     """
     try:
-        # Check if file exists
         if not os.path.exists(filepath):
             logger.error(f"File not found: {filepath}")
-            return 1  # Treat missing file as detected
+            return 1
 
-        # Get file size for some basic "analysis"
-        file_size = os.path.getsize(filepath)
+        api_url = os.getenv("MODEL_API_URL", "http://127.0.0.1:8080")
+        try:
+            timeout = float(os.getenv("MODEL_API_TIMEOUT", "30"))
+        except ValueError:
+            timeout = 30.0
 
-        # Simple heuristic: smaller files have slightly better chance of evasion
-        # This adds some realism to the random model
-        if file_size < 100000:  # Less than 100KB
-            evasion_chance = 0.4  # 40% chance of evasion
-        elif file_size < 1000000:  # Less than 1MB
-            evasion_chance = 0.3  # 30% chance of evasion
-        else:
-            evasion_chance = 0.2  # 20% chance of evasion
+        with open(filepath, "rb") as f:
+            data = f.read()
 
-        # Random decision based on evasion chance
-        result = 0 if random.random() < evasion_chance else 1
+        headers = {"Content-Type": "application/octet-stream"}
+
+        response = requests.post(api_url, data=data, headers=headers, timeout=timeout)
+        response.raise_for_status()
+
+        # Parse JSON safely
+        try:
+            payload = response.json()
+        except json.JSONDecodeError:
+            logger.error("Model API returned non-JSON response")
+            return 1
+
+        result = payload.get("result")
+        if result not in (0, 1):
+            logger.error(f"Model API returned invalid result: {payload}")
+            return 1
 
         logger.info(
-            f"Evasion model result for {filepath}: {'EVADED' if result == 0 else 'DETECTED'}"
+            f"Model API result for {filepath}: {'EVADED' if result == 0 else 'DETECTED'}"
         )
-        return result
+        return int(result)
 
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error contacting model API: {e}")
+        return 1
     except Exception as e:
-        logger.error(f"Error in evasion model: {e}")
-        return 1  # Treat errors as detected
+        logger.error(f"Unexpected error in evasion_model: {e}")
+        return 1
 
 
 def evasion_model_with_entropy(filepath: str) -> int:
