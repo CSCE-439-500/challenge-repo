@@ -64,7 +64,7 @@ def evasion_model(filepath: str) -> int:
 
         result = payload.get("result")
         if result not in (0, 1):
-            logger.error(f"Model API returned invalid result: {payload}")
+            logger.error(f"Model API returned invalid result payload: {payload}")
             return 1
 
         logger.info(
@@ -78,6 +78,9 @@ def evasion_model(filepath: str) -> int:
     except Exception as e:
         logger.error(f"Unexpected error in evasion_model: {e}")
         return 1
+
+
+# Note: No heuristic fallback. All decisions come from the local model API.
 
 
 def evasion_model_with_entropy(filepath: str) -> int:
