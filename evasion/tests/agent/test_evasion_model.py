@@ -7,6 +7,7 @@ including placeholder ML model functionality.
 import os
 import tempfile
 import pytest
+import requests
 from unittest.mock import patch
 
 from obfuscation_agent.evasion_model import (
@@ -43,21 +44,32 @@ class TestEvasionModel:
         assert result == 1  # Should return 1 (detected) for missing file
 
     def test_evasion_model_file_size_heuristic(self, temp_file):
-        """Test that file size affects evasion probability."""
+        """Test that we can observe varied outcomes via API responses (mocked)."""
         # Test with small file
         with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as f:
-            f.write(b"small")  # Very small file
+            f.write(b"small")
             small_file = f.name
 
-        try:
-            # Run multiple times to check probability
-            results = []
-            for _ in range(10):
-                result = evasion_model(small_file)
-                results.append(result)
+        class FakeResponse:
+            def __init__(self, value):
+                self._value = value
 
-            # Should get some variety in results
-            assert len(set(results)) > 1  # Should have both 0 and 1 results
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {"result": self._value}
+
+        try:
+            # Alternate API results between 0 and 1
+            side_effects = [FakeResponse(0 if i % 2 == 0 else 1) for i in range(10)]
+            with patch(
+                "requests.post",
+                side_effect=side_effects,
+            ):
+                results = [evasion_model(small_file) for _ in range(10)]
+
+            assert len(set(results)) > 1
         finally:
             if os.path.exists(small_file):
                 os.unlink(small_file)
@@ -160,12 +172,13 @@ class TestEvasionModel:
         assert result2 in [0, 1]
 
     def test_evasion_model_error_handling(self, temp_file):
-        """Test error handling in evasion model."""
-        with patch("random.random") as mock_random:
-            mock_random.side_effect = Exception("Random error")
-
+        """Test error handling in evasion model (API error -> detected=1)."""
+        with patch(
+            "requests.post",
+            side_effect=requests.exceptions.RequestException("API down"),
+        ):
             result = evasion_model(temp_file)
-            assert result == 1  # Should return 1 (detected) on error
+            assert result == 1
 
     def test_evasion_model_with_entropy_error_handling(self, temp_file):
         """Test error handling in entropy-based evasion model."""
