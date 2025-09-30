@@ -85,32 +85,24 @@ def test_change_timestamp_action(agent_tmpdir, temp_binary):
 
 def test_apply_rust_crypter_action(agent_tmpdir, temp_binary):
     agent = ObfuscationAgent(output_dir=agent_tmpdir)
-    out_path = os.path.join(agent_tmpdir, "encrypted.exe")
+    out_path = os.path.join(
+        agent_tmpdir,
+        "intermediate-files",
+        os.path.basename(temp_binary) + "_rust_stub.exe",
+    )
 
     class FakeRustCrypter:
-        def encrypt_pe_file(self, filepath, output_dir):
-            assert filepath == temp_binary
-            assert output_dir == agent_tmpdir
-            return out_path
+        def create_encrypted_payload(self, pe_bytes, output_path=None):
+            assert isinstance(pe_bytes, (bytes, bytearray))
+            assert str(output_path).endswith("_rust_stub.exe")
+            return output_path
 
     with patch(
         "rt_evade.dropper.rust_crypter.RustCrypterIntegration",
         return_value=FakeRustCrypter(),
     ):
         result = agent.apply_rust_crypter(temp_binary)
-        assert result == out_path
+        assert result.endswith("_rust_stub.exe")
 
 
-def test_apply_upx_packing_action(agent_tmpdir, temp_binary):
-    agent = ObfuscationAgent(output_dir=agent_tmpdir)
-    out_path = os.path.join(agent_tmpdir, "packed.exe")
-
-    class FakePEPacker:
-        def pack_pe_file(self, filepath, output_dir):
-            assert filepath == temp_binary
-            assert output_dir == agent_tmpdir
-            return out_path
-
-    with patch("rt_evade.pe.packer.PEPacker", return_value=FakePEPacker()):
-        result = agent.apply_upx_packing(temp_binary)
-        assert result == out_path
+# UPX packing removed from workflow; no test needed

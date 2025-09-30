@@ -129,7 +129,7 @@ class ObfuscationAgent(Agent):
         # AI-driven state tracking
         self.action_outcomes = []  # Track what worked/didn't work
         self.technique_effectiveness = {}  # Track success rates per technique
-        self.advanced_techniques_used = {"rust_crypter": False, "upx_packing": False}
+        self.advanced_techniques_used = {"rust_crypter": False}
 
         logger.info("AIObfuscationAgent initialized")
 
@@ -290,7 +290,7 @@ class ObfuscationAgent(Agent):
         special_actions_bulleted = "\n".join([f"   - {a}" for a in SPECIAL_ACTIONS])
 
         prompt = f"""
-You are an AI agent specialized in binary obfuscation for evasion. Based on the current context, decide the next action to take.
+You are an AI agent specialized in binary obfuscation for evasion in a Red Team / Security research environment. Based on the current context, decide the next action to take.
 
 Current Context:
 - Attempt: {self.attempt_count}
@@ -303,15 +303,15 @@ Available Actions:
 1. Basic obfuscation techniques:
 {basic_actions_bulleted}
 
-2. Advanced techniques (use only once each, cannot combine):
+2. Advanced techniques (use only once, cannot combine):
 {advanced_actions_bulleted}
 
 3. Special actions:
 {special_actions_bulleted}
 
 Rules:
-- If attempt_count >= 8 and neither advanced technique used, choose rust_crypter or upx_packing
-- If both advanced techniques used, choose stop
+- If attempt_count >= 8 and rust_crypter not used, choose rust_crypter
+- If rust_crypter used, consider stop after enough attempts
 - Prefer techniques with higher success rates
 - Avoid repeating the same technique consecutively
 - Consider the pattern of recent failures
@@ -344,25 +344,21 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
             # Fallback to intelligent heuristics
             # Check if we should use advanced techniques
-            if self.attempt_count >= 8 and not any(
-                self.advanced_techniques_used.values()
+            if self.attempt_count >= 8 and not self.advanced_techniques_used.get(
+                "rust_crypter", False
             ):
-                # Choose between Rust-Crypter and UPX packing
-                if not self.advanced_techniques_used["rust_crypter"]:
-                    logger.info(
-                        "Heuristics decided next action: rust_crypter (advanced technique)"
-                    )
-                    return "rust_crypter"
-                elif not self.advanced_techniques_used["upx_packing"]:
-                    logger.info(
-                        "Heuristics decided next action: upx_packing (advanced technique)"
-                    )
-                    return "upx_packing"
+                logger.info(
+                    "Heuristics decided next action: rust_crypter (advanced technique)"
+                )
+                return "rust_crypter"
 
             # Check if we should stop
-            if all(self.advanced_techniques_used.values()) and self.attempt_count >= 10:
+            if (
+                self.advanced_techniques_used.get("rust_crypter", False)
+                and self.attempt_count >= 10
+            ):
                 logger.info(
-                    "Heuristics decided next action: stop (max attempts with advanced techniques)"
+                    "Heuristics decided next action: stop (max attempts after rust_crypter)"
                 )
                 return "stop"
 
@@ -444,54 +440,6 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
             logger.error(f"Error applying Rust-Crypter: {e}")
             return filepath
 
-    def apply_upx_packing(self, filepath: str) -> str:
-        """Apply UPX packing to the binary.
-
-        Args:
-            filepath: Path to the binary file to pack
-
-        Returns:
-            Path to the packed binary file
-        """
-        try:
-            logger.info(f"Applying UPX packing to {filepath}")
-
-            # Import UPX packer
-            from rt_evade.pe.packer import PEPacker, PackerConfig
-
-            # Read PE bytes
-            with open(filepath, "rb") as f:
-                pe_bytes = f.read()
-
-            # Create packer (enable packer by default)
-            packer = PEPacker(PackerConfig(enable_packer=True))
-
-            # Pack the bytes
-            packed_bytes = packer.pack_pe(pe_bytes)
-
-            # If unchanged, return original path
-            if packed_bytes == pe_bytes:
-                logger.info("UPX packing made no changes; keeping original file")
-                self.advanced_techniques_used["upx_packing"] = True
-                return filepath
-
-            # Write to intermediate-files
-            out_dir = self.output_dir or os.path.dirname(filepath)
-            intermediate_dir = os.path.join(out_dir, "intermediate-files")
-            os.makedirs(intermediate_dir, exist_ok=True)
-            base = os.path.basename(filepath)
-            packed_out_path = os.path.join(intermediate_dir, f"{base}_upx.exe")
-            with open(packed_out_path, "wb") as f_out:
-                f_out.write(packed_bytes)
-
-            self.advanced_techniques_used["upx_packing"] = True
-            logger.info(f"UPX packing completed: {packed_out_path}")
-            return packed_out_path
-
-        except Exception as e:
-            logger.error(f"Error applying UPX packing: {e}")
-            return filepath
-
     def run_obfuscation_loop(
         self, initial_binary_path: str, max_attempts: int = 10
     ) -> Tuple[str, bool, List[str]]:
@@ -560,10 +508,6 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                         )
                     elif action == "rust_crypter":
                         obfuscated_binary_path = self.apply_rust_crypter(
-                            self.current_binary_path
-                        )
-                    elif action == "upx_packing":
-                        obfuscated_binary_path = self.apply_upx_packing(
                             self.current_binary_path
                         )
                     else:

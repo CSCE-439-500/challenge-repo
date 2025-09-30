@@ -15,10 +15,7 @@ BASIC_ACTIONS: List[str] = [
 ]
 
 # Advanced techniques (should be used at most once each)
-ADVANCED_ACTIONS: List[str] = [
-    "rust_crypter",
-    "upx_packing",
-]
+ADVANCED_ACTIONS: List[str] = ["rust_crypter"]
 
 # Special control actions
 SPECIAL_ACTIONS: List[str] = [
