@@ -7,6 +7,7 @@ performing real PE manipulations or invoking external tools.
 import os
 import tempfile
 import subprocess
+import shutil
 from unittest.mock import patch, Mock
 
 import pytest
@@ -121,22 +122,19 @@ def test_revert_checkpoint_action(agent_tmpdir, temp_binary):
         temp_binary, output_dir=agent_tmpdir, base_name=os.path.basename(temp_binary)
     )
 
-    # Modify the original file to simulate advanced technique result
-    with open(temp_binary, "wb") as f:
+    # Create a modified file to simulate advanced technique result
+    modified_file = os.path.join(intermediate_dir, "modified.exe")
+    shutil.copy2(temp_binary, modified_file)
+    with open(modified_file, "wb") as f:
         f.write(b"advanced_technique_result")
 
     # Create second checkpoint (this simulates the checkpoint saved after advanced technique)
     checkpoint2 = save_checkpoint(
-        temp_binary, output_dir=agent_tmpdir, base_name=os.path.basename(temp_binary)
+        modified_file, output_dir=agent_tmpdir, base_name=os.path.basename(temp_binary)
     )
 
-    # Verify current state
-    with open(temp_binary, "rb") as f:
-        current_content = f.read()
-    assert current_content == b"advanced_technique_result"
-
     # Test revert_checkpoint (should revert to checkpoint1, skipping checkpoint2)
-    result = agent.revert_checkpoint(temp_binary, temp_binary)
+    result = agent.revert_checkpoint(modified_file, temp_binary)
 
     # Verify the result is a different file path (reverted state)
     assert result != temp_binary
@@ -154,6 +152,8 @@ def test_revert_checkpoint_action(agent_tmpdir, temp_binary):
             os.unlink(checkpoint)
     if os.path.exists(result):
         os.unlink(result)
+    if os.path.exists(modified_file):
+        os.unlink(modified_file)
 
 
 def test_revert_checkpoint_no_checkpoints(agent_tmpdir, temp_binary):
@@ -193,6 +193,15 @@ def test_apply_rust_dropper_action(agent_tmpdir, temp_binary):
     """Test apply_rust_dropper action."""
     agent = ObfuscationAgent(output_dir=agent_tmpdir)
 
+    # Create intermediate-files directory
+    intermediate_dir = os.path.join(agent_tmpdir, "intermediate-files")
+    os.makedirs(intermediate_dir, exist_ok=True)
+
+    # Create a mock dropper file that's larger than the input
+    dropper_path = os.path.join(intermediate_dir, os.path.basename(temp_binary))
+    with open(dropper_path, "wb") as f:
+        f.write(b"mock_dropper_content" * 10000)  # Make it much larger
+
     # Mock the subprocess call and file operations
     with patch("subprocess.run") as mock_run, patch("shutil.copy2") as mock_copy, patch(
         "shutil.rmtree"
@@ -205,11 +214,6 @@ def test_apply_rust_dropper_action(agent_tmpdir, temp_binary):
         mock_run.return_value.stderr = ""
         mock_exists.return_value = True
 
-        # Mock the generated dropper file
-        expected_dropper = os.path.join(
-            agent_tmpdir, "intermediate-files", os.path.basename(temp_binary)
-        )
-
         result = agent.apply_rust_dropper(temp_binary)
 
         # Verify subprocess was called with correct arguments
@@ -221,8 +225,15 @@ def test_apply_rust_dropper_action(agent_tmpdir, temp_binary):
         assert call_args[0][0][3] == "build-droppers"
         assert call_args[0][0][4] == "stealth"
 
+        # Verify the result is the dropper path
+        assert result == dropper_path
+
         # Verify advanced technique was marked as used
         assert agent.advanced_techniques_used["rust_dropper"] is True
+
+    # Cleanup
+    if os.path.exists(dropper_path):
+        os.unlink(dropper_path)
 
 
 def test_apply_rust_dropper_subprocess_failure(agent_tmpdir, temp_binary):

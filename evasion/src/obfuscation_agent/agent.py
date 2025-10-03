@@ -577,31 +577,28 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                 logger.error(f"Rust-dropper directory not found at {rust_dropper_dir}")
                 return filepath
 
-            # Create temporary samples directory
-            samples_dir = rust_dropper_dir / "temp_samples"
-            samples_dir.mkdir(exist_ok=True)
-
-            # Copy the PE file to samples directory
-            sample_path = samples_dir / Path(filepath).name
-            shutil.copy2(filepath, str(sample_path))
-
             # Create output directory
             out_dir = self.output_dir or os.path.dirname(filepath)
             intermediate_dir = Path(out_dir) / "intermediate-files"
             intermediate_dir.mkdir(parents=True, exist_ok=True)
 
-            # Run the rust-dropper pipeline with stealth preset
+            # Convert paths to absolute paths since we're running from rust_dropper_dir
+            abs_filepath = os.path.abspath(filepath)
+            abs_intermediate_dir = os.path.abspath(intermediate_dir)
+
+            # Run the rust-dropper pipeline with stealth preset on single file
             cmd = [
                 "cargo",
                 "run",
                 "--bin",
                 "build-droppers",
                 "stealth",
-                str(samples_dir),
-                str(intermediate_dir),
+                abs_filepath,
+                abs_intermediate_dir,
             ]
 
             logger.info(f"Running rust-dropper command: {' '.join(cmd)}")
+            logger.info(f"Input file size: {os.path.getsize(filepath)} bytes")
             result = subprocess.run(
                 cmd,
                 cwd=rust_dropper_dir,
@@ -610,23 +607,46 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                 timeout=300,  # 5 minute timeout
             )
 
+            logger.info(f"Rust-dropper return code: {result.returncode}")
+            if result.stdout:
+                logger.info(f"Rust-dropper stdout: {result.stdout}")
+            if result.stderr:
+                logger.info(f"Rust-dropper stderr: {result.stderr}")
+
             if result.returncode != 0:
                 logger.error(f"Rust-dropper failed: {result.stderr}")
                 return filepath
 
-            # Find the generated dropper file
-            dropper_name = Path(filepath).stem
-            dropper_path = intermediate_dir / f"{dropper_name}.exe"
+            # Rust-dropper creates a dropper with the same filename in the output directory
+            # The filename includes the full path, so we need to extract just the basename
+            input_basename = Path(filepath).name
+            dropper_path = intermediate_dir / input_basename
 
             if not dropper_path.exists():
                 logger.error(f"Dropper file not found at {dropper_path}")
                 return filepath
 
-            # Clean up temporary samples directory
-            shutil.rmtree(str(samples_dir), ignore_errors=True)
+            # Verify the dropper is actually different from the input (should be much larger)
+            input_size = os.path.getsize(filepath)
+            dropper_size = os.path.getsize(dropper_path)
+
+            # The dropper should be significantly larger due to Rust runtime + embedded payload
+            # Based on testing, droppers are typically 1000x+ larger than input
+            if dropper_size <= input_size * 100:  # At least 100x larger
+                logger.error(
+                    f"Dropper file size ({dropper_size}) not significantly larger than input ({input_size})"
+                )
+                logger.error(
+                    f"Expected dropper to be at least 100x larger, got {dropper_size/input_size:.1f}x"
+                )
+                return filepath
+
+            # No cleanup needed - we're processing the file directly
 
             self.advanced_techniques_used["rust_dropper"] = True
-            logger.info(f"Rust-Dropper obfuscation completed: {dropper_path}")
+            logger.info(
+                f"Rust-Dropper obfuscation completed: {dropper_path} (size: {dropper_size} bytes)"
+            )
             return str(dropper_path)
 
         except subprocess.TimeoutExpired:
