@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from tqdm import tqdm
+import json
+from datetime import datetime
 
 
 def get_verdict(file_path):
@@ -54,14 +56,13 @@ def main():
     Main function to orchestrate the multithreaded requests and analysis.
     Uses 4 threads for optimal performance with localhost API.
     """
-    base_paths = [
-        "/home/dakota/csce-439/evasion-samples/blackbox/crypt-only",
-        "/home/dakota/csce-439/evasion-samples/blackbox/pipeline-crypt",
-        "/home/dakota/csce-439/evasion-samples/blackbox/pipeline-packed",
-    ]
+    base_paths = ["/home/dakota/csce-439/challenge-repo/evasion/out"]
 
     # Store results for each base path
     all_results = defaultdict(lambda: {"goodware": 0, "malware": 0, "errors": 0})
+
+    # Store detailed results for each file
+    detailed_results = defaultdict(list)
 
     # Process each directory sequentially to reduce memory usage
     for base_path in base_paths:
@@ -95,6 +96,32 @@ def main():
                 total=len(file_paths),
                 desc=f"Processing {os.path.basename(base_path)}",
             ):
+                # Store detailed result
+                file_name = os.path.basename(file_path)
+                verdict = (
+                    "ERROR"
+                    if result is None
+                    else ("GOODWARE" if result == 0 else "MALWARE")
+                )
+                detailed_results[base_path].append(
+                    {
+                        "file": file_name,
+                        "path": file_path,
+                        "verdict": verdict,
+                        "result": result,
+                    }
+                )
+
+                # Show real-time result
+                if result is not None:
+                    status_icon = "✅" if result == 0 else "🚨"
+                    print(
+                        f"  {status_icon} {file_name}: {'CLEAN' if result == 0 else 'FLAGGED'}"
+                    )
+                else:
+                    print(f"  ❌ {file_name}: ERROR")
+
+                # Count results
                 if result is not None:
                     if result == 0:
                         all_results[base_path]["goodware"] += 1
@@ -102,6 +129,12 @@ def main():
                         all_results[base_path]["malware"] += 1
                 else:
                     all_results[base_path]["errors"] += 1
+
+    # Print detailed file-by-file results
+    print_detailed_results(detailed_results)
+
+    # Create summary table
+    create_summary_table(detailed_results)
 
     # Print the final summary
     print("\n" + "=" * 60)
@@ -120,9 +153,128 @@ def main():
         print(f"  Total processed: {total}")
     print("=" * 60)
 
+    # Save detailed results to JSON file
+    save_detailed_results(detailed_results)
+
     # Create the visualization
     print("\nCreating visualizations...")
     plot_results(all_results)
+
+
+def print_detailed_results(detailed_results):
+    """
+    Prints detailed file-by-file results showing which binaries are flagged and which aren't.
+    """
+    print("\n" + "=" * 80)
+    print("DETAILED FILE-BY-FILE RESULTS")
+    print("=" * 80)
+
+    for path, results_list in detailed_results.items():
+        print(f"\n📁 Directory: {os.path.basename(path)}")
+        print("-" * 60)
+
+        # Sort results by file number for better readability
+        results_list.sort(key=lambda x: int(x["file"]) if x["file"].isdigit() else 999)
+
+        # Group by verdict
+        flagged_files = []
+        unflagged_files = []
+        error_files = []
+
+        for result in results_list:
+            if result["verdict"] == "MALWARE":
+                flagged_files.append(result["file"])
+            elif result["verdict"] == "GOODWARE":
+                unflagged_files.append(result["file"])
+            else:
+                error_files.append(result["file"])
+
+        # Print flagged files (MALWARE)
+        if flagged_files:
+            print(f"🚨 FLAGGED AS MALWARE ({len(flagged_files)} files):")
+            print("   " + ", ".join(flagged_files))
+
+        # Print unflagged files (GOODWARE)
+        if unflagged_files:
+            print(f"✅ NOT FLAGGED - GOODWARE ({len(unflagged_files)} files):")
+            print("   " + ", ".join(unflagged_files))
+
+        # Print error files
+        if error_files:
+            print(f"❌ ERRORS ({len(error_files)} files):")
+            print("   " + ", ".join(error_files))
+
+        print(
+            f"\n📊 Summary: {len(flagged_files)} flagged, {len(unflagged_files)} unflagged, {len(error_files)} errors"
+        )
+        print("-" * 60)
+
+
+def save_detailed_results(detailed_results):
+    """
+    Saves detailed results to a JSON file for further analysis.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"detailed_results_{timestamp}.json"
+
+    # Convert defaultdict to regular dict for JSON serialization
+    json_data = {"timestamp": timestamp, "summary": {}, "detailed_results": {}}
+
+    for path, results_list in detailed_results.items():
+        # Count results for this path
+        flagged = sum(1 for r in results_list if r["verdict"] == "MALWARE")
+        unflagged = sum(1 for r in results_list if r["verdict"] == "GOODWARE")
+        errors = sum(1 for r in results_list if r["verdict"] == "ERROR")
+
+        json_data["summary"][os.path.basename(path)] = {
+            "flagged": flagged,
+            "unflagged": unflagged,
+            "errors": errors,
+            "total": len(results_list),
+        }
+
+        json_data["detailed_results"][os.path.basename(path)] = results_list
+
+    with open(filename, "w") as f:
+        json.dump(json_data, f, indent=2)
+
+    print(f"\n💾 Detailed results saved to: {filename}")
+
+
+def create_summary_table(detailed_results):
+    """
+    Creates a summary table showing flagged vs unflagged files in a tabular format.
+    """
+    print("\n" + "=" * 80)
+    print("SUMMARY TABLE")
+    print("=" * 80)
+
+    for path, results_list in detailed_results.items():
+        print(f"\n📁 Directory: {os.path.basename(path)}")
+        print("-" * 60)
+
+        # Sort results by file number
+        results_list.sort(key=lambda x: int(x["file"]) if x["file"].isdigit() else 999)
+
+        # Create table headers
+        print(f"{'File':<8} {'Verdict':<12} {'Status':<15}")
+        print("-" * 35)
+
+        # Print each file result
+        for result in results_list:
+            file_name = result["file"]
+            verdict = result["verdict"]
+
+            if verdict == "MALWARE":
+                status = "🚨 FLAGGED"
+            elif verdict == "GOODWARE":
+                status = "✅ CLEAN"
+            else:
+                status = "❌ ERROR"
+
+            print(f"{file_name:<8} {verdict:<12} {status:<15}")
+
+        print("-" * 60)
 
 
 def plot_results(results):
@@ -272,8 +424,6 @@ def plot_results(results):
     # Also create individual pie charts for each category
     create_individual_pie_charts(results)
 
-    plt.show()
-
 
 def create_individual_pie_charts(results):
     """
@@ -316,12 +466,19 @@ def create_individual_pie_charts(results):
     plt.tight_layout()
     plt.savefig("individual_category_analysis.png", dpi=300, bbox_inches="tight")
     print("Individual category charts saved as 'individual_category_analysis.png'")
-    plt.show()
 
 
 if __name__ == "__main__":
-    print("Starting malware analysis with 4 threads (optimized for localhost API)")
-    print("Processing directories: crypt-only, pipeline-crypt, pipeline-packed")
+    print("🚀 Starting Enhanced Malware Analysis Tool")
+    print("=" * 60)
+    print("Features:")
+    print("  ✅ File-by-file verdict tracking")
+    print("  ✅ Detailed flagged vs unflagged reporting")
+    print("  ✅ Summary tables and JSON export")
+    print("  ✅ Visual charts and graphs")
+    print("  ✅ Multi-threaded processing (4 threads)")
+    print("=" * 60)
+    print("Processing directories: out/")
     print("API endpoint: http://127.0.0.1:8080")
     print("-" * 60)
 

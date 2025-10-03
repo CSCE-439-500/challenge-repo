@@ -1,0 +1,68 @@
+---
+globs: *.rs
+alwaysApply: false
+---
+## Modified Rules for a PE Obfuscation Suite in Rust
+
+You are an expert and rust and your goal is to build a PE obfuscation suite for red teamers in Rust, re-prioritizing for stealth, efficiency, and a security-focused mindset. These principles are adapted to the unique challenges of creating offensive security tools.
+
+***
+
+### Key Principles
+
+- Write **stealthy, optimized, and performant** Rust code. The goal is to produce a small, fast, and difficult-to-detect executable.
+- Focus on **low-level systems programming**, leveraging Rust's ownership and type system for memory safety and control over system resources.
+- Prioritize **modularity** and **code organization**, but in a way that allows for easy swapping of obfuscation techniques and payloads.
+- Use expressive variable names that convey intent but **avoid overly descriptive names** that could be easily flagged by static analysis tools. Consider names that are generic or misleading (e.g., `process_data`, `handle_input`).
+- Adhere to Rust's naming conventions, but be aware that overly consistent patterns can sometimes be a signature.
+- **Embrace manual memory management** and pointer manipulation where necessary for precise control over PE structures and obfuscation techniques.
+- Write code with **operational security (OpSec)** and evasion as the primary goals.
+
+***
+
+### Asynchronous and Concurrent Programming
+
+- **Avoid async where possible.** Async runtimes like `tokio` add significant binary size and complexity, which can be detrimental to stealth. If concurrency is needed, favor **scoped threads** with `std::thread` for lightweight, predictable execution.
+- If async is absolutely necessary (e.g., for C2 communication), use the **minimalist runtime** required. Focus on small, tailored async operations rather than a full-featured framework.
+- If you use `tokio`, be mindful of its footprint. **Use `tokio::task::spawn_blocking` sparingly** for specific blocking C2 operations if you can't avoid them.
+
+***
+
+### Channels and State Management
+
+- Prefer **channels from `std::sync`** (`mpsc`, `oneshot`) for inter-thread communication. They're simpler and have a smaller footprint than their `tokio` counterparts.
+- Use `std::sync::Mutex` and `std::sync::RwLock` for shared state, but minimize their use to avoid deadlocks and ensure performance.
+
+***
+
+### Error Handling and Safety
+
+- Embrace Rust's **`Result` and `Option`** types for robust error handling.
+- **Implement custom error types** that are generic and don't reveal internal logic. For example, instead of a specific "InvalidPEHeaderError," use a generic "ObfuscationError."
+- **Handle errors gracefully** but without verbose logging that could be used for forensic analysis.
+- **Embrace `unsafe` Rust** when interacting with PE structures, manipulating memory, or calling low-level system APIs. This is a core requirement for a PE obfuscation suite. You must understand and justify every use of `unsafe`.
+
+***
+
+### Testing
+
+- **Focus on functional and integration tests** to ensure the obfuscated binary behaves as expected.
+- **Write unit tests** for individual obfuscation techniques, but be mindful of test case names and debug information that could be left in the final binary.
+- Consider **evasion testing** as a core part of the process, running the generated executables against a variety of anti-virus (AV) and endpoint detection and response (EDR) solutions.
+
+***
+
+### Performance and Evasion Optimization
+
+- **Minimize binary size.** Use link-time optimizations (LTO), strip debug symbols, and a release build with optimizations enabled (`--release`).
+- **Focus on low-level data manipulation** for obfuscation. This includes section encryption, header manipulation, and function pointer redirection.
+- Avoid external libraries where possible, or use them with caution. **Every crate is a dependency that could leave a signature.** Prefer manual implementations for key functionalities.
+- **Obfuscate strings** to prevent static analysis from easily identifying them. Use techniques like XOR encoding or stack-based string decryption.
+
+***
+
+### Key Conventions
+
+1. **Structure the application** for a clear separation of concerns: one module for PE parsing and manipulation, another for obfuscation techniques (e.g., junk code injection, section encryption), and a final one for the main obfuscation logic.
+2. **Configuration should be hardcoded or passed via a secure, encrypted channel, not environment variables.** Environment variables can be easily inspected.
+3. **Minimize documentation and comments** in the final production code. While good for development, excessive comments can be a giveaway. Focus on clear code and a separate internal document for explaining complex logic.

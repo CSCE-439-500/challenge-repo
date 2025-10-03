@@ -83,7 +83,7 @@ class ModelTester:
 
             # Wait for container to start up
             print("Waiting for API to be ready...")
-            time.sleep(10)  # Give container time to start
+            time.sleep(4)  # Give container time to start
 
             # Check if container is still running
             if docker_process.poll() is not None:
@@ -95,7 +95,7 @@ class ModelTester:
 
             # Run the main.py script
             print(f"Running malware analysis against model {model_id}...")
-            main_cmd = ["python", "main.py"]
+            main_cmd = ["python3", "main.py"]
 
             result = subprocess.run(
                 main_cmd, capture_output=True, text=True, timeout=self.timeout
@@ -142,12 +142,10 @@ class ModelTester:
 
     def parse_results(self, output):
         """
-        Parse the output from main.py to extract results
+        Parse the output from main.py to extract results for the out directory
         """
         results = {
-            "crypt-only": {"goodware": 0, "malware": 0, "errors": 0},
-            "pipeline-crypt": {"goodware": 0, "malware": 0, "errors": 0},
-            "pipeline-packed": {"goodware": 0, "malware": 0, "errors": 0},
+            "out": {"goodware": 0, "malware": 0, "errors": 0},
         }
 
         lines = output.split("\n")
@@ -155,12 +153,8 @@ class ModelTester:
 
         for line in lines:
             if "Results for" in line:
-                if "crypt-only" in line:
-                    current_category = "crypt-only"
-                elif "pipeline-crypt" in line:
-                    current_category = "pipeline-crypt"
-                elif "pipeline-packed" in line:
-                    current_category = "pipeline-packed"
+                if "out" in line:
+                    current_category = "out"
             elif current_category and "Goodware" in line:
                 try:
                     count = int(line.split(":")[1].split()[0])
@@ -197,6 +191,8 @@ class ModelTester:
         time.sleep(3)  # Give it time to clean up
 
         for model_id in range(start_model, end_model + 1):
+            if model_id in [2, 3, 11, 13, 14, 15]:
+                continue
             print(
                 f"\nProgress: {model_id - start_model + 1}/{end_model - start_model + 1}"
             )
@@ -207,9 +203,6 @@ class ModelTester:
                 print(f"Model {model_id} results collected")
             else:
                 print(f"Model {model_id} results not available")
-
-            # Small delay between models
-            time.sleep(2)
 
         print(
             f"\nTesting complete! {len(self.results)}/{end_model - start_model + 1} models successful"
@@ -261,37 +254,34 @@ class ModelTester:
 
     def create_model_comparison_dashboard(self):
         """
-        Create a comprehensive dashboard comparing all models
+        Create a comprehensive dashboard comparing all models for the out directory
         """
         models = sorted(self.results.keys())
-        categories = ["crypt-only", "pipeline-crypt", "pipeline-packed"]
+        category = "out"
 
         fig, axes = plt.subplots(2, 2, figsize=(20, 15))
         fig.suptitle(
-            "Comprehensive Model Performance Analysis", fontsize=16, fontweight="bold"
+            "Comprehensive Model Performance Analysis - Out Directory",
+            fontsize=16,
+            fontweight="bold",
         )
 
-        # 1. Overall Detection Rates by Model
+        # 1. Detection Rates by Model
         ax1 = axes[0, 0]
         detection_rates = []
         for model in models:
-            total_detected = 0
-            total_files = 0
-            for category in categories:
-                data = self.results[model][category]
-                total_detected += data["malware"]
-                total_files += data["goodware"] + data["malware"] + data["errors"]
-
+            data = self.results[model][category]
+            total_files = data["goodware"] + data["malware"] + data["errors"]
             if total_files > 0:
-                detection_rate = (total_detected / total_files) * 100
+                detection_rate = (data["malware"] / total_files) * 100
                 detection_rates.append(detection_rate)
             else:
                 detection_rates.append(0)
 
         bars = ax1.bar(range(len(models)), detection_rates, color="skyblue", alpha=0.7)
         ax1.set_xlabel("Model ID")
-        ax1.set_ylabel("Overall Detection Rate (%)")
-        ax1.set_title("Overall Malware Detection Rate by Model")
+        ax1.set_ylabel("Detection Rate (%)")
+        ax1.set_title("Malware Detection Rate by Model (Out Directory)")
         ax1.set_xticks(range(len(models)))
         ax1.set_xticklabels([f"Model {m}" for m in models], rotation=45)
         ax1.grid(True, alpha=0.3)
@@ -307,45 +297,73 @@ class ModelTester:
                 fontweight="bold",
             )
 
-        # 2. Detection Rates by Category
+        # 2. Goodware vs Malware Counts
         ax2 = axes[0, 1]
+        goodware_counts = []
+        malware_counts = []
+        for model in models:
+            data = self.results[model][category]
+            goodware_counts.append(data["goodware"])
+            malware_counts.append(data["malware"])
+
         x = np.arange(len(models))
-        width = 0.25
+        width = 0.35
 
-        for i, category in enumerate(categories):
-            rates = []
-            for model in models:
-                data = self.results[model][category]
-                total = data["goodware"] + data["malware"] + data["errors"]
-                if total > 0:
-                    rate = (data["malware"] / total) * 100
-                else:
-                    rate = 0
-                rates.append(rate)
-
-            ax2.bar(x + i * width, rates, width, label=category, alpha=0.8)
+        bars1 = ax2.bar(
+            x - width / 2,
+            goodware_counts,
+            width,
+            label="Goodware",
+            color="green",
+            alpha=0.7,
+        )
+        bars2 = ax2.bar(
+            x + width / 2,
+            malware_counts,
+            width,
+            label="Malware",
+            color="red",
+            alpha=0.7,
+        )
 
         ax2.set_xlabel("Model ID")
-        ax2.set_ylabel("Detection Rate (%)")
-        ax2.set_title("Detection Rate by Category and Model")
-        ax2.set_xticks(x + width)
+        ax2.set_ylabel("File Count")
+        ax2.set_title("Goodware vs Malware Detection Counts")
+        ax2.set_xticks(x)
         ax2.set_xticklabels([f"Model {m}" for m in models], rotation=45)
         ax2.legend()
         ax2.grid(True, alpha=0.3)
+
+        # Add value labels
+        for bar in bars1:
+            height = bar.get_height()
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 0.5,
+                f"{int(height)}",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
+        for bar in bars2:
+            height = bar.get_height()
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 0.5,
+                f"{int(height)}",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
 
         # 3. Error Rates by Model
         ax3 = axes[1, 0]
         error_rates = []
         for model in models:
-            total_errors = 0
-            total_files = 0
-            for category in categories:
-                data = self.results[model][category]
-                total_errors += data["errors"]
-                total_files += data["goodware"] + data["malware"] + data["errors"]
-
+            data = self.results[model][category]
+            total_files = data["goodware"] + data["malware"] + data["errors"]
             if total_files > 0:
-                error_rate = (total_errors / total_files) * 100
+                error_rate = (data["errors"] / total_files) * 100
                 error_rates.append(error_rate)
             else:
                 error_rates.append(0)
@@ -399,185 +417,182 @@ class ModelTester:
 
     def create_category_analysis(self):
         """
-        Create detailed analysis by category
+        Create detailed analysis for the out directory
         """
         models = sorted(self.results.keys())
-        categories = ["crypt-only", "pipeline-crypt", "pipeline-packed"]
+        category = "out"
 
-        fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+        fig, ax = plt.subplots(1, 1, figsize=(12, 8))
         fig.suptitle(
-            "Detailed Analysis by Evasion Category", fontsize=16, fontweight="bold"
+            "Detailed Analysis - Out Directory", fontsize=16, fontweight="bold"
         )
 
-        for i, category in enumerate(categories):
-            ax = axes[i]
+        detection_rates = []
+        for model in models:
+            data = self.results[model][category]
+            total = data["goodware"] + data["malware"] + data["errors"]
+            if total > 0:
+                rate = (data["malware"] / total) * 100
+            else:
+                rate = 0
+            detection_rates.append(rate)
 
-            detection_rates = []
-            for model in models:
-                data = self.results[model][category]
-                total = data["goodware"] + data["malware"] + data["errors"]
-                if total > 0:
-                    rate = (data["malware"] / total) * 100
-                else:
-                    rate = 0
-                detection_rates.append(rate)
+        bars = ax.bar(
+            range(len(models)),
+            detection_rates,
+            color=[
+                "red" if r < 50 else "orange" if r < 80 else "green"
+                for r in detection_rates
+            ],
+            alpha=0.7,
+        )
 
-            bars = ax.bar(
-                range(len(models)),
-                detection_rates,
-                color=[
-                    "red" if r < 50 else "orange" if r < 80 else "green"
-                    for r in detection_rates
-                ],
-                alpha=0.7,
+        ax.set_xlabel("Model ID")
+        ax.set_ylabel("Detection Rate (%)")
+        ax.set_title("Malware Detection Rate by Model\n(Out Directory)")
+        ax.set_xticks(range(len(models)))
+        ax.set_xticklabels([f"M{m}" for m in models], rotation=45)
+        ax.grid(True, alpha=0.3)
+        ax.set_ylim(0, 100)
+
+        # Add value labels
+        for j, rate in enumerate(detection_rates):
+            ax.text(
+                j,
+                rate + 1,
+                f"{rate:.1f}%",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
             )
 
-            ax.set_xlabel("Model ID")
-            ax.set_ylabel("Detection Rate (%)")
-            ax.set_title(f'{category.replace("-", " ").title()}\nEvasion Effectiveness')
-            ax.set_xticks(range(len(models)))
-            ax.set_xticklabels([f"M{m}" for m in models], rotation=45)
-            ax.grid(True, alpha=0.3)
-            ax.set_ylim(0, 100)
-
-            # Add value labels
-            for j, rate in enumerate(detection_rates):
-                ax.text(
-                    j,
-                    rate + 1,
-                    f"{rate:.1f}%",
-                    ha="center",
-                    va="bottom",
-                    fontweight="bold",
-                )
-
         plt.tight_layout()
-        plt.savefig("category_evasion_analysis.png", dpi=300, bbox_inches="tight")
-        print("Category analysis saved as 'category_evasion_analysis.png'")
+        plt.savefig("out_directory_analysis.png", dpi=300, bbox_inches="tight")
+        print("Out directory analysis saved as 'out_directory_analysis.png'")
         plt.show()
 
     def create_evasion_analysis(self):
         """
-        Create analysis showing which models are best evaded
+        Create analysis showing which models are best evaded for the out directory
         """
         models = sorted(self.results.keys())
-        categories = ["crypt-only", "pipeline-crypt", "pipeline-packed"]
+        category = "out"
 
         # Calculate evasion scores (lower detection rate = better evasion)
-        evasion_scores = defaultdict(list)
+        evasion_scores = []
+        detection_rates = []
 
-        for category in categories:
-            for model in models:
-                data = self.results[model][category]
-                total = data["goodware"] + data["malware"] + data["errors"]
-                if total > 0:
-                    detection_rate = (data["malware"] / total) * 100
-                    evasion_score = 100 - detection_rate  # Higher = better evasion
-                else:
-                    evasion_score = 0
-                evasion_scores[category].append(evasion_score)
+        for model in models:
+            data = self.results[model][category]
+            total = data["goodware"] + data["malware"] + data["errors"]
+            if total > 0:
+                detection_rate = (data["malware"] / total) * 100
+                evasion_score = 100 - detection_rate  # Higher = better evasion
+            else:
+                detection_rate = 0
+                evasion_score = 0
+            detection_rates.append(detection_rate)
+            evasion_scores.append(evasion_score)
 
-        # Create heatmap-style visualization
-        fig, ax = plt.subplots(figsize=(12, 8))
+        # Create visualization
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+        fig.suptitle("Evasion Analysis - Out Directory", fontweight="bold", fontsize=16)
 
-        # Prepare data for heatmap
-        heatmap_data = []
-        for category in categories:
-            heatmap_data.append(evasion_scores[category])
+        # 1. Detection Rate Heatmap-style
+        colors = [
+            "red" if r < 50 else "orange" if r < 80 else "green"
+            for r in detection_rates
+        ]
+        bars1 = ax1.bar(range(len(models)), detection_rates, color=colors, alpha=0.7)
+        ax1.set_xlabel("Model ID")
+        ax1.set_ylabel("Detection Rate (%)")
+        ax1.set_title("Detection Rate by Model")
+        ax1.set_xticks(range(len(models)))
+        ax1.set_xticklabels([f"Model {m}" for m in models], rotation=45)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_ylim(0, 100)
 
-        im = ax.imshow(heatmap_data, cmap="RdYlGn", aspect="auto", vmin=0, vmax=100)
+        # Add value labels
+        for i, rate in enumerate(detection_rates):
+            ax1.text(
+                i, rate + 1, f"{rate:.1f}%", ha="center", va="bottom", fontweight="bold"
+            )
 
-        # Set ticks and labels
-        ax.set_xticks(range(len(models)))
-        ax.set_xticklabels([f"Model {m}" for m in models])
-        ax.set_yticks(range(len(categories)))
-        ax.set_yticklabels([cat.replace("-", " ").title() for cat in categories])
+        # 2. Evasion Score
+        colors2 = [
+            "green" if s > 50 else "orange" if s > 20 else "red" for s in evasion_scores
+        ]
+        bars2 = ax2.bar(range(len(models)), evasion_scores, color=colors2, alpha=0.7)
+        ax2.set_xlabel("Model ID")
+        ax2.set_ylabel("Evasion Score (%)")
+        ax2.set_title("Evasion Effectiveness\n(Higher = Better Evasion)")
+        ax2.set_xticks(range(len(models)))
+        ax2.set_xticklabels([f"Model {m}" for m in models], rotation=45)
+        ax2.grid(True, alpha=0.3)
+        ax2.set_ylim(0, 100)
 
-        # Add colorbar
-        cbar = plt.colorbar(im, ax=ax)
-        cbar.set_label("Evasion Score (%)", rotation=270, labelpad=20)
-
-        # Add text annotations
-        for i in range(len(categories)):
-            for j in range(len(models)):
-                text = ax.text(
-                    j,
-                    i,
-                    f"{heatmap_data[i][j]:.1f}%",
-                    ha="center",
-                    va="center",
-                    color="black",
-                    fontweight="bold",
-                )
-
-        ax.set_title(
-            "Evasion Effectiveness Heatmap\n(Higher scores = better evasion)",
-            fontweight="bold",
-        )
-        ax.set_xlabel("Model ID")
-        ax.set_ylabel("Evasion Category")
+        # Add value labels
+        for i, score in enumerate(evasion_scores):
+            ax2.text(
+                i,
+                score + 1,
+                f"{score:.1f}%",
+                ha="center",
+                va="bottom",
+                fontweight="bold",
+            )
 
         plt.tight_layout()
-        plt.savefig("evasion_effectiveness_heatmap.png", dpi=300, bbox_inches="tight")
-        print("Evasion heatmap saved as 'evasion_effectiveness_heatmap.png'")
+        plt.savefig("evasion_analysis_out_directory.png", dpi=300, bbox_inches="tight")
+        print("Evasion analysis saved as 'evasion_analysis_out_directory.png'")
         plt.show()
 
     def create_performance_summary(self):
         """
-        Create a summary table of model performance
+        Create a summary table of model performance for the out directory
         """
         models = sorted(self.results.keys())
-        categories = ["crypt-only", "pipeline-crypt", "pipeline-packed"]
+        category = "out"
 
         # Create summary data
         summary_data = []
         for model in models:
-            row = {"Model": f"Model {model}"}
-            total_detected = 0
-            total_files = 0
-            total_errors = 0
+            data = self.results[model][category]
+            total_files = data["goodware"] + data["malware"] + data["errors"]
 
-            for category in categories:
-                data = self.results[model][category]
-                total_detected += data["malware"]
-                total_files += data["goodware"] + data["malware"] + data["errors"]
-                total_errors += data["errors"]
-
-                # Category-specific detection rate
-                if data["goodware"] + data["malware"] + data["errors"] > 0:
-                    cat_rate = (
-                        data["malware"]
-                        / (data["goodware"] + data["malware"] + data["errors"])
-                    ) * 100
-                else:
-                    cat_rate = 0
-                row[f'{category.replace("-", "_").title()}_Rate'] = f"{cat_rate:.1f}%"
-
-            # Overall rates
+            # Detection rate
             if total_files > 0:
-                overall_rate = (total_detected / total_files) * 100
-                error_rate = (total_errors / total_files) * 100
+                detection_rate = (data["malware"] / total_files) * 100
+                error_rate = (data["errors"] / total_files) * 100
             else:
-                overall_rate = 0
+                detection_rate = 0
                 error_rate = 0
 
-            row["Overall_Detection_Rate"] = f"{overall_rate:.1f}%"
-            row["Error_Rate"] = f"{error_rate:.1f}%"
-            row["Status"] = self.model_status.get(model, "unknown")
-
+            row = {
+                "Model": f"Model {model}",
+                "Detection_Rate": f"{detection_rate:.1f}%",
+                "Goodware_Count": data["goodware"],
+                "Malware_Count": data["malware"],
+                "Error_Count": data["errors"],
+                "Total_Files": total_files,
+                "Error_Rate": f"{error_rate:.1f}%",
+                "Status": self.model_status.get(model, "unknown"),
+            }
             summary_data.append(row)
 
         # Create DataFrame and save
         df = pd.DataFrame(summary_data)
-        df.to_csv("model_performance_summary.csv", index=False)
-        print("Performance summary saved as 'model_performance_summary.csv'")
+        df.to_csv("model_performance_summary_out_directory.csv", index=False)
+        print(
+            "Performance summary saved as 'model_performance_summary_out_directory.csv'"
+        )
 
         # Print summary to console
-        print("\n" + "=" * 80)
-        print("MODEL PERFORMANCE SUMMARY")
-        print("=" * 80)
+        print("\n" + "=" * 100)
+        print("MODEL PERFORMANCE SUMMARY - OUT DIRECTORY")
+        print("=" * 100)
         print(df.to_string(index=False))
-        print("=" * 80)
+        print("=" * 100)
 
 
 def main():
@@ -614,9 +629,9 @@ def main():
 
         print(f"\nAnalysis complete! Check the generated files:")
         print("comprehensive_model_analysis.png")
-        print("category_evasion_analysis.png")
-        print("evasion_effectiveness_heatmap.png")
-        print("model_performance_summary.csv")
+        print("out_directory_analysis.png")
+        print("evasion_analysis_out_directory.png")
+        print("model_performance_summary_out_directory.csv")
         print("model_test_results.json")
 
     except KeyboardInterrupt:
