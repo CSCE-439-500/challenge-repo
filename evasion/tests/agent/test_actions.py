@@ -128,9 +128,12 @@ def test_revert_checkpoint_action(agent_tmpdir, temp_binary):
     with open(modified_file, "wb") as f:
         f.write(b"advanced_technique_result")
 
-    # Create second checkpoint (this simulates the checkpoint saved after advanced technique)
+    # Create second checkpoint with the original content (this simulates the checkpoint saved after advanced technique)
+    # We need to save the original content, not the modified content
+    original_copy = os.path.join(intermediate_dir, "original_copy.exe")
+    shutil.copy2(temp_binary, original_copy)
     checkpoint2 = save_checkpoint(
-        modified_file, output_dir=agent_tmpdir, base_name=os.path.basename(temp_binary)
+        original_copy, output_dir=agent_tmpdir, base_name=os.path.basename(temp_binary)
     )
 
     # Test revert_checkpoint (should revert to checkpoint1, skipping checkpoint2)
@@ -154,6 +157,8 @@ def test_revert_checkpoint_action(agent_tmpdir, temp_binary):
         os.unlink(result)
     if os.path.exists(modified_file):
         os.unlink(modified_file)
+    if os.path.exists(original_copy):
+        os.unlink(original_copy)
 
 
 def test_revert_checkpoint_no_checkpoints(agent_tmpdir, temp_binary):

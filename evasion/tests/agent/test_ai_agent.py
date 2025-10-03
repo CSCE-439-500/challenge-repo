@@ -36,6 +36,7 @@ class TestAIObfuscationAgent:
         assert agent.technique_effectiveness == {}
         assert agent.advanced_techniques_used == {
             "rust_crypter": False,
+            "rust_dropper": False,
         }
 
     def test_agent_initialization_with_openai(self):
@@ -294,7 +295,8 @@ class TestAIObfuscationAgent:
         # Set up agent state to trigger stop condition
         agent.attempt_count = 10
         agent.advanced_techniques_used["rust_crypter"] = True
-        # upx_packing removed; only rust_crypter flag remains
+        agent.advanced_techniques_used["rust_dropper"] = True
+        # Both advanced techniques used
 
         with patch.object(agent.model, "response") as mock_response:
             mock_response_obj = Mock()
