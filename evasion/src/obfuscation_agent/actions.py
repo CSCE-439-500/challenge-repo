@@ -15,11 +15,12 @@ BASIC_ACTIONS: List[str] = [
 ]
 
 # Advanced techniques (should be used at most once each)
-ADVANCED_ACTIONS: List[str] = ["rust_crypter"]
+ADVANCED_ACTIONS: List[str] = ["rust_crypter", "rust_dropper"]
 
 # Special control actions
 SPECIAL_ACTIONS: List[str] = [
     "stop",
+    "revert_checkpoint",
 ]
 
 # All actions (order matters only for display)

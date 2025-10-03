@@ -172,3 +172,71 @@ class TestStateManager:
 
             success = revert_to_checkpoint(temp_file, "checkpoint.exe")
             assert success is False
+
+    def test_save_checkpoint_with_base_name(self, temp_file):
+        """Test checkpoint creation with custom base name."""
+        custom_base_name = "custom_name.exe"
+        checkpoint_path = save_checkpoint(temp_file, base_name=custom_base_name)
+
+        assert checkpoint_path != temp_file
+        assert os.path.exists(checkpoint_path)
+        assert "_checkpoint_" in checkpoint_path
+        assert "custom_name" in checkpoint_path
+
+        # Verify content is the same
+        with open(temp_file, "rb") as f:
+            original_data = f.read()
+        with open(checkpoint_path, "rb") as f:
+            checkpoint_data = f.read()
+        assert original_data == checkpoint_data
+
+        # Cleanup
+        if os.path.exists(checkpoint_path):
+            os.unlink(checkpoint_path)
+
+    def test_save_checkpoint_with_output_dir_and_base_name(self, temp_file):
+        """Test checkpoint creation with output directory and custom base name."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            custom_base_name = "test_file.exe"
+            checkpoint_path = save_checkpoint(
+                temp_file, output_dir=temp_dir, base_name=custom_base_name
+            )
+
+            assert checkpoint_path != temp_file
+            assert os.path.exists(checkpoint_path)
+            assert "_checkpoint_" in checkpoint_path
+            assert "test_file" in checkpoint_path
+            assert temp_dir in checkpoint_path
+
+            # Verify content is the same
+            with open(temp_file, "rb") as f:
+                original_data = f.read()
+            with open(checkpoint_path, "rb") as f:
+                checkpoint_data = f.read()
+            assert original_data == checkpoint_data
+
+    def test_list_checkpoints_with_directory(self, temp_file):
+        """Test listing checkpoints in a specific directory."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            checkpoints_dir = os.path.join(temp_dir, "checkpoints")
+            os.makedirs(checkpoints_dir)
+
+            # Create checkpoints with custom base name
+            checkpoint1 = save_checkpoint(
+                temp_file, output_dir=temp_dir, base_name="test.exe"
+            )
+            checkpoint2 = save_checkpoint(
+                temp_file, output_dir=temp_dir, base_name="test.exe"
+            )
+
+            # List checkpoints using directory
+            checkpoints = list_checkpoints("test.exe", checkpoints_dir)
+
+            assert len(checkpoints) >= 2
+            assert checkpoint1 in checkpoints
+            assert checkpoint2 in checkpoints
+
+            # Cleanup
+            for checkpoint in checkpoints:
+                if os.path.exists(checkpoint):
+                    os.unlink(checkpoint)

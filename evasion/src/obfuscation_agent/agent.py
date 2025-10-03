@@ -39,6 +39,8 @@ from .state_manager import (
     save_checkpoint,
     revert_to_checkpoint,
     cleanup_old_checkpoints,
+    cleanup_checkpoint,
+    list_checkpoints,
 )
 from .evasion_model import evasion_model
 from .actions import BASIC_ACTIONS, ADVANCED_ACTIONS, SPECIAL_ACTIONS, ALL_ACTIONS
@@ -129,7 +131,7 @@ class ObfuscationAgent(Agent):
         # AI-driven state tracking
         self.action_outcomes = []  # Track what worked/didn't work
         self.technique_effectiveness = {}  # Track success rates per technique
-        self.advanced_techniques_used = {"rust_crypter": False}
+        self.advanced_techniques_used = {"rust_crypter": False, "rust_dropper": False}
 
         logger.info("AIObfuscationAgent initialized")
 
@@ -310,8 +312,10 @@ Available Actions:
 {special_actions_bulleted}
 
 Rules:
-- If attempt_count >= 8 and rust_crypter not used, choose rust_crypter
-- If rust_crypter used, consider stop after enough attempts
+- If attempt_count >= 8 and no advanced techniques used, choose rust_crypter or rust_dropper
+- If an advanced technique was used and still detected, use revert_checkpoint to go back
+- Cannot combine rust_crypter and rust_dropper (they have conflicting entropy effects)
+- If both advanced techniques used, choose stop
 - Prefer techniques with higher success rates
 - Avoid repeating the same technique consecutively
 - Consider the pattern of recent failures
@@ -344,21 +348,43 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
             # Fallback to intelligent heuristics
             # Check if we should use advanced techniques
-            if self.attempt_count >= 8 and not self.advanced_techniques_used.get(
-                "rust_crypter", False
-            ):
-                logger.info(
-                    "Heuristics decided next action: rust_crypter (advanced technique)"
-                )
-                return "rust_crypter"
+            if self.attempt_count >= 8:
+                # Check if we need to revert after an advanced technique failed
+                if self.advanced_techniques_used.get(
+                    "rust_crypter", False
+                ) or self.advanced_techniques_used.get("rust_dropper", False):
+                    # If we used an advanced technique and it failed, revert
+                    if (
+                        self.action_outcomes
+                        and self.action_outcomes[-1].get("action")
+                        in ["rust_crypter", "rust_dropper"]
+                        and not self.action_outcomes[-1].get("success", False)
+                    ):
+                        logger.info(
+                            "Heuristics decided next action: revert_checkpoint (advanced technique failed)"
+                        )
+                        return "revert_checkpoint"
+
+                # Use advanced techniques if not used yet
+                if not self.advanced_techniques_used.get("rust_crypter", False):
+                    logger.info(
+                        "Heuristics decided next action: rust_crypter (advanced technique)"
+                    )
+                    return "rust_crypter"
+                elif not self.advanced_techniques_used.get("rust_dropper", False):
+                    logger.info(
+                        "Heuristics decided next action: rust_dropper (advanced technique)"
+                    )
+                    return "rust_dropper"
 
             # Check if we should stop
             if (
                 self.advanced_techniques_used.get("rust_crypter", False)
+                and self.advanced_techniques_used.get("rust_dropper", False)
                 and self.attempt_count >= 10
             ):
                 logger.info(
-                    "Heuristics decided next action: stop (max attempts after rust_crypter)"
+                    "Heuristics decided next action: stop (both advanced techniques used)"
                 )
                 return "stop"
 
@@ -440,6 +466,176 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
             logger.error(f"Error applying Rust-Crypter: {e}")
             return filepath
 
+    def revert_checkpoint(self, filepath: str, original_filepath: str = None) -> str:
+        """Revert to the most recent checkpoint.
+
+        This method is used when an advanced action fails and we need to
+        revert to a previous state before trying a different approach.
+
+        Args:
+            filepath: Path to the current binary file
+            original_filepath: Path to the original file (for finding checkpoints)
+
+        Returns:
+            Path to the reverted binary file (same as input if no checkpoint found)
+        """
+        try:
+            logger.info(f"Attempting to revert checkpoint for {filepath}")
+
+            # Use original file path for finding checkpoints if provided
+            checkpoint_base = original_filepath or filepath
+
+            # Extract just the filename for checkpoint lookup
+            checkpoint_base_name = os.path.basename(checkpoint_base)
+
+            # Determine checkpoints directory
+            checkpoints_dir = None
+            if self.output_dir:
+                checkpoints_dir = os.path.join(self.output_dir, "checkpoints")
+
+            # Find all checkpoints
+            checkpoints = list_checkpoints(checkpoint_base_name, checkpoints_dir)
+
+            if not checkpoints:
+                logger.warning(
+                    f"No checkpoints found for {checkpoint_base}, cannot revert"
+                )
+                return filepath
+
+            # Skip the most recent checkpoint (saved after advanced technique)
+            # and use the second most recent one (saved before advanced technique)
+            if len(checkpoints) < 2:
+                logger.warning(
+                    f"Not enough checkpoints to revert (need at least 2, found {len(checkpoints)})"
+                )
+                return filepath
+
+            # Get the second most recent checkpoint (saved before the advanced technique)
+            target_checkpoint = checkpoints[1]
+
+            # Determine the correct reverted file path
+            # The checkpoint contains the state before the advanced technique
+            # We need to determine what the file path should be after revert
+            checkpoint_base_name = os.path.splitext(
+                os.path.basename(target_checkpoint)
+            )[0]
+            # Remove the "_checkpoint_timestamp" part to get the original base name
+            original_base = checkpoint_base_name.split("_checkpoint_")[0]
+
+            # Create the correct reverted file path
+            if self.output_dir:
+                intermediate_dir = os.path.join(self.output_dir, "intermediate-files")
+                reverted_filepath = os.path.join(
+                    intermediate_dir, f"{original_base}.exe"
+                )
+            else:
+                reverted_filepath = f"{original_base}.exe"
+
+            # Revert to the checkpoint
+            success = revert_to_checkpoint(reverted_filepath, target_checkpoint)
+
+            if success:
+                logger.info(
+                    f"Successfully reverted to {reverted_filepath} from checkpoint {target_checkpoint}"
+                )
+                # Don't clean up the checkpoint - keep it for potential future use
+                return reverted_filepath
+            else:
+                logger.error(
+                    f"Failed to revert to {reverted_filepath} from checkpoint {target_checkpoint}"
+                )
+                return filepath
+
+        except Exception as e:
+            logger.error(f"Error reverting checkpoint: {e}")
+            return filepath
+
+    def apply_rust_dropper(self, filepath: str) -> str:
+        """Apply Rust-Dropper obfuscation to the binary.
+
+        This method uses the rust-dropper pipeline to create an obfuscated
+        dropper executable that embeds the PE file in ICO resources.
+
+        Args:
+            filepath: Path to the binary file to obfuscate
+
+        Returns:
+            Path to the obfuscated dropper executable
+        """
+        try:
+            logger.info(f"Applying Rust-Dropper obfuscation to {filepath}")
+
+            import subprocess
+            import shutil
+            from pathlib import Path
+
+            # Get project root (assuming we're in the evasion directory)
+            project_root = Path(__file__).parent.parent.parent
+            rust_dropper_dir = project_root / "rust-dropper"
+
+            if not rust_dropper_dir.exists():
+                logger.error(f"Rust-dropper directory not found at {rust_dropper_dir}")
+                return filepath
+
+            # Create temporary samples directory
+            samples_dir = rust_dropper_dir / "temp_samples"
+            samples_dir.mkdir(exist_ok=True)
+
+            # Copy the PE file to samples directory
+            sample_path = samples_dir / Path(filepath).name
+            shutil.copy2(filepath, str(sample_path))
+
+            # Create output directory
+            out_dir = self.output_dir or os.path.dirname(filepath)
+            intermediate_dir = Path(out_dir) / "intermediate-files"
+            intermediate_dir.mkdir(parents=True, exist_ok=True)
+
+            # Run the rust-dropper pipeline with stealth preset
+            cmd = [
+                "cargo",
+                "run",
+                "--bin",
+                "build-droppers",
+                "stealth",
+                str(samples_dir),
+                str(intermediate_dir),
+            ]
+
+            logger.info(f"Running rust-dropper command: {' '.join(cmd)}")
+            result = subprocess.run(
+                cmd,
+                cwd=rust_dropper_dir,
+                capture_output=True,
+                text=True,
+                timeout=300,  # 5 minute timeout
+            )
+
+            if result.returncode != 0:
+                logger.error(f"Rust-dropper failed: {result.stderr}")
+                return filepath
+
+            # Find the generated dropper file
+            dropper_name = Path(filepath).stem
+            dropper_path = intermediate_dir / f"{dropper_name}.exe"
+
+            if not dropper_path.exists():
+                logger.error(f"Dropper file not found at {dropper_path}")
+                return filepath
+
+            # Clean up temporary samples directory
+            shutil.rmtree(str(samples_dir), ignore_errors=True)
+
+            self.advanced_techniques_used["rust_dropper"] = True
+            logger.info(f"Rust-Dropper obfuscation completed: {dropper_path}")
+            return str(dropper_path)
+
+        except subprocess.TimeoutExpired:
+            logger.error("Rust-dropper command timed out")
+            return filepath
+        except Exception as e:
+            logger.error(f"Error applying Rust-Dropper: {e}")
+            return filepath
+
     def run_obfuscation_loop(
         self, initial_binary_path: str, max_attempts: int = 10
     ) -> Tuple[str, bool, List[str]]:
@@ -471,8 +667,11 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
 
                 # Save checkpoint before modification
                 try:
+                    # Use original file name as base for checkpoint naming
                     checkpoint_path = save_checkpoint(
-                        self.current_binary_path, self.output_dir
+                        self.current_binary_path,
+                        self.output_dir,
+                        base_name=os.path.basename(initial_binary_path),
                     )
                     logger.info(f"Checkpoint saved: {checkpoint_path}")
                 except Exception as e:
@@ -509,6 +708,14 @@ Respond with ONLY the action name (e.g., "add_junk_sections", "rust_crypter", "s
                     elif action == "rust_crypter":
                         obfuscated_binary_path = self.apply_rust_crypter(
                             self.current_binary_path
+                        )
+                    elif action == "rust_dropper":
+                        obfuscated_binary_path = self.apply_rust_dropper(
+                            self.current_binary_path
+                        )
+                    elif action == "revert_checkpoint":
+                        obfuscated_binary_path = self.revert_checkpoint(
+                            self.current_binary_path, initial_binary_path
                         )
                     else:
                         logger.warning(f"Unknown action: {action}, skipping")
